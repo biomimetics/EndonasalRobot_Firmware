@@ -1,0 +1,95 @@
+/*
+ * Copyright (c) 2021 Eug Krashtan
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Application overlay for creating temperature sensor device instance
+ from framework-zephyr/samples/sensor/stm32_temp_sensor/boards/nucleo_f401re.overlay
+ changed adc1 16 to adc1 18 per f446re tech manual
+
+ * Application overlay for creating quadrature decoder device instance
+ * added DAC overlay (also need to enable in proj.conf)
+
+ */
+
+/*
+/ {
+	aliases {
+		qdec0 = &qdec;
+	};
+          
+};
+*/
+
+/ {
+	zephyr,user {
+		dac = <&dac1>;
+		dac-channel-id = <1>;
+		dac-resolution = <12>;
+		/* adjust adc channel number according to pinmux in board.dts */
+		/* watch out for conflict with uarta pa2+pa3, led pa5, d/a pa4, qdec pa6+7 */
+		io-channels = <&adc1 6>; 
+	};
+};
+
+
+
+
+/* stuff for adc setup */
+&adc1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+    status = "okay";
+	pinctrl-0 = < &adc1_in6_pa6 >;
+	channel@1 {
+		reg = <1>;
+		zephyr,gain = "ADC_GAIN_1";
+		zephyr,reference = "ADC_REF_INTERNAL";
+		zephyr,acquisition-time = "ADC_ACQ_TIME_DEFAULT"; 
+		zephyr,resolution = <12>;
+	};
+};
+
+
+/{
+	soc 
+	{
+		dac1: dac@40007400 
+		{   compatible = "st,stm32-dac"; 
+			reg = < 0x40007400 0x400 >; 
+			clocks = < &rcc 0x2 0x20000000 >;
+			status = "okay";
+			label = "DAC_1";
+			#io-channel-cells = < 0x1 >;
+			pinctrl-0 = < &dac_out1_pa4 >;
+			phandle = < 0x14 >;
+		};
+
+		usart2: serial@40004400 {
+			compatible = "st,stm32-usart", "st,stm32-uart";
+			reg = < 0x40004400 0x400 >;
+			clocks = < &rcc 0x2 0x20000 >;
+			interrupts = < 0x26 0x0 >;
+			status = "okay";
+			label = "UART_2";
+			pinctrl-0 = < &usart2_tx_pa2 &usart2_rx_pa3 >;
+			current-speed = < 230400 >;
+		};
+	};
+};
+
+/*
+&timers3 {
+	status = "okay";
+
+	qdec: qdec {
+		status = "okay";
+		label = "QDEC_0";
+        pinctrl-0 = <&tim3_ch1_pa6 &tim3_ch2_pa7>;
+		pinctrl-names = "default";
+		st,input-polarity-inverted;
+		st,counts-per-revolution = <16>;
+	};
+};
+*/
+
