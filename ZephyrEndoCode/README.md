@@ -55,3 +55,4 @@ See code block diagram in ./Doc
 * set appropriate port, e.g.: ser = serial.Serial('COM3')
 * choose data_file_name = '../Data/data.txt'  [this should be updated to make a unique name each time to avoid data over write]
 * To change update rate, (will likely work at 100 ms, i.e. 10 Hz) change makeCmd('PRNWAIT', 500)   # set wait time for state update to be 500 ms
+* update rate works at 40 ms, but not faster using 2xPFRQ and 12xPWM
