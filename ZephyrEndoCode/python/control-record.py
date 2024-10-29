@@ -38,7 +38,7 @@ sendStop.clear()
 controlStop = threading.Event()
 controlStop.clear()
 
-ser = serial.Serial('COM4')
+ser = serial.Serial('COM5')
 ser.baudrate=230400
 
 # readline documentation https://docs.python.org/3/library/io.html#io.IOBase.readline
