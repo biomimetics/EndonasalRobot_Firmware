@@ -1,5 +1,13 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Oct. 29, 2024
+
+test max rate for sending PFRQ and 12 PWM commands
+25 Hz ok.
+(about 300 chars at 50 us/char so limit is about 15 ms)
+at 50 Hz, get # printq_add: printq put failed 
+at 33 Hz get # uart_input_thread: cmdq put failed 
+at 25 Hz 
 Oct. 8, 2024
 
 Changing max freq for PFRQ1 and PFRQ2.

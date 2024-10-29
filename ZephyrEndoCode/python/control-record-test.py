@@ -108,8 +108,9 @@ def processLine(textLine,index):
 
 
 
-
+###############################################
 # thread receive state message from USB (STM32)
+###############################################
 def rcvstate():
     print('Started rcvstate thread')
     writeFileHeader(data_file_name)
@@ -141,9 +142,13 @@ def rcvstate():
     time.sleep(2)
     ser.close() # should be in receive thread so it closes after reading whole line
     print('rcvstate: finished thread')
+############## end  rcvstate thread #################################    
+    
 
+###############################################
 # thread for sending commands over USB to STM32
 # use queue so can send commands from multiple sources
+###############################################
 def sendCmd():
    i=0
    print('sendCMD: started thread') 
@@ -158,6 +163,8 @@ def sendCmd():
            ser.write(message)   # send text to STM32, format is command word in text followed by short
            i=i+1 
    print('sendCmd: finished thread')
+############## end  sendCmd thread #################################
+
 
 def makeCmd(command, value):
     textval = "{0}".format("%-6d" % value)  # convert command value to string, left justify
@@ -190,18 +197,22 @@ def makePressureCmd(regulator_vals):
   
         #print(message)
 def pressureToPWM(pressure):
-    print('pressureToPWM', end=' ')
-    print(pressure)
+ #   print('pressureToPWM', end=' ')
+ #   print(pressure)
     desired_voltage = pressure/67*5
     PWM = desired_voltage/3.3*PWM_PERIOD
     return PWM
 
-
+###############################################
+# thread for control_loop
+# 
+###############################################
 def control_loop(): 
     global pressSet
     pressSet = np.zeros(12)
+    pressVal = 0  # value for pressure 0 to 25 psi
     i = 0;
-    count = 600
+    count = 10000
     state = StateStruct()
     print('control_loop- waiting for STM32READY (release RESET)\n')
     # makeCmd('PRNTWAIT', 5000)   # set wait time for state update in ms
@@ -212,24 +223,21 @@ def control_loop():
     print('control_loop: started thread. Iterations %d' % (count))
     time.sleep(3)
     makePressureCmd(pressSet)
+    time.sleep(0.1)
     while ((i < count) and (not controlStop.is_set())):
         if not stateQ.empty():
             state = stateQ.get()
             # print('state.time = %f\n' % (state.time))
- #           value = 500 + 1000*np.cos(2*np.pi*state.time/30)
- #           makeCmd('PFRQ1', value)
- #           makeCmd('PFRQ2', -value)
- #           message = makeCmdString('PFRQ1', value) + makeCmdString('PFRQ2', -value)
- #           message = message + makeCmdString('PWM1', value+500)
- #           sendQ.put(message+b'\n')
+            value = 500 + 1000*np.cos(2*np.pi*state.time/30)
+ 
 # =============================================================================
-# need delay before sending first command to allow Zephyr to catch up
-            if ((i % 500) == 300):
-                 pressSet[5] = 25  # channel 6
-  #               pressSet = np.array([10,10,10,10,10,10,10,10,10,10,10,10])
-                 makePressureCmd(pressSet)
-            if ((i %500) == 50):
-                pressSet = np.array([0,0,0,0,0,0,0,0,0,0,0,0])
+# need delay as Zephyr can't handle all the text in messages.
+            if ((i %4) == 0):  # set rate to 100Hz/4 = 25 Hz
+                message = makeCmdString('PFRQ1', value) + makeCmdString('PFRQ2', -value)
+                sendQ.put(message+b'\n')
+                pressVal = 12.5*(1+np.sin(2*np.pi*state.time/10))
+                pressSet = np.array([pressVal, pressVal,pressVal,pressVal,pressVal,pressVal,
+                                     pressVal,pressVal,pressVal,pressVal,pressVal,pressVal])                             
                 makePressureCmd(pressSet)     
             i = i+1 
 
@@ -239,11 +247,12 @@ def control_loop():
         else:
    #         print('stateQ empty')
             time.sleep(0.001)
+# end of loop, do clean up, turn off valves
     pressSet = np.array([0,0,0,0,0,0,0,0,0,0,0,0])
     makePressureCmd(pressSet)  
     print('control_loop: finished thread')
     rcvStop.set()  # can stop threads
-
+############## end  control_loop thread #################################
 
 
 
