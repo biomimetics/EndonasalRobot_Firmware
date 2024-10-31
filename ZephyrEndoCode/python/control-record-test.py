@@ -212,7 +212,7 @@ def control_loop():
     pressSet = np.zeros(12)
     pressVal = 0  # value for pressure 0 to 25 psi
     i = 0;
-    count = 10000
+    count = 1000000
     state = StateStruct()
     print('control_loop- waiting for STM32READY (release RESET)\n')
     # makeCmd('PRNTWAIT', 5000)   # set wait time for state update in ms
@@ -232,7 +232,7 @@ def control_loop():
  
 # =============================================================================
 # need delay as Zephyr can't handle all the text in messages.
-            if ((i %4) == 0):  # set rate to 100Hz/4 = 25 Hz
+            if ((i %2) == 0):  # set rate to 100Hz/4 = 25 Hz
                 message = makeCmdString('PFRQ1', value) + makeCmdString('PFRQ2', -value)
                 sendQ.put(message+b'\n')
                 pressVal = 12.5*(1+np.sin(2*np.pi*state.time/10))

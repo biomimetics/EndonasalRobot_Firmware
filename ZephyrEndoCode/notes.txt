@@ -1,5 +1,24 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Oct. 30, 2024
+
+at 25 Hz, died after 60,000 loops (600 seconds)
+# uart_input_thread: cmdq put failed 
+maybe change to fail more gracefully?
+warning message crashes stream due to linefeed and then missing #
+try adding trailing #? ==> printk can interrupt middle of line and corrupt read.
+printk to queue? but if queue is overflowed, will jam it up.
+# printq_add: printq put failed 
+
+maybe make printq longer, or add delay (print fewer characters?)
+
+ok to miss input command? longer input queue just gives bigger latency.
+
+control_thread.c:K_MSGQ_DEFINE(cmdq, sizeof(struct cmd_struct_def), 8, 16); // 8 items max, align on 16 bytes
+==> but have 12 PWM + 2 PFRQ. Change to 16 long.
+
+
+
 Oct. 29, 2024
 
 test max rate for sending PFRQ and 12 PWM commands

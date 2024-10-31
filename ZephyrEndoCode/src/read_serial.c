@@ -180,7 +180,7 @@ void uart_input_thread(void)
           /* note snprintf is slow and takes ~100 us to print float and 50 us to print int 
           * also, printq can fall behind with more than 1 string per ms 
           */
-          snprintf(cmd_string, sizeof(cmd_string), "cmd=%s value=%d, ", 
+          snprintf(cmd_string, sizeof(cmd_string), "%s %d, ", 
                        cmd_struct.cmd, cmd_struct.value);
          // printq_add(log); 
           strcat(log, cmd_string);
@@ -194,7 +194,7 @@ void uart_input_thread(void)
           i++;
            // non-blocking, wait=0 ==> return immediately if the queue is already full.
           if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // send data to back of queue,
-          {    printk("# uart_input_thread: cmdq put failed \n"); }
+          {    printk("# uart_input_thread: cmdq put failed \n # "); } // add ' # ' for comment if queue over flowed
         }
         strcat(log,"\n");
         // snprintf(log, sizeof(log), " \n"); // end command string

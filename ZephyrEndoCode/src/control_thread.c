@@ -53,7 +53,8 @@ K_THREAD_STACK_DEFINE(control_stack_area, STACKSIZE);
 static struct k_thread control_thread_data;   // structure to hold kernel data about thread
 
 // command queue define
-K_MSGQ_DEFINE(cmdq, sizeof(struct cmd_struct_def), 8, 16); // 8 items max, align on 16 bytes 
+/* command includes PFRQ1,2 and PWM1-12, so need 16 items minimum in queue*/
+K_MSGQ_DEFINE(cmdq, sizeof(struct cmd_struct_def), 16, 16); // 16 items max, align on 16 bytes 
 
 // structure for state data
 extern struct state_data_t state_data;

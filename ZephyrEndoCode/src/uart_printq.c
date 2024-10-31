@@ -49,12 +49,15 @@ void printq_init(uint32_t queue_length, uint32_t max_msg_length)
 
 // add an item to the print queue
 void printq_add(char *msg)
-{   if(k_sem_take(&printq_sem, K_MSEC(50)))
+{   uint32_t printq_used;
+    if(k_sem_take(&printq_sem, K_MSEC(50)))
     { printk("# printq access blocked by other thread. msg = %s", msg); } //assume msg has \n
     else
     {
         if(k_msgq_put(&printq, msg, K_NO_WAIT) != 0) // send data to back of queue,
-        {    printk("# printq_add: printq put failed \n"); }
+        {  printq_used = k_msgq_num_used_get (&printq);
+           printk("# printq_add: printq put failed. Used %d with %s\n", printq_used, msg); 
+        }
     }
     // non-blocking, wait=0 ==> return immediately if the queue is already full.
     #ifdef DEBUG_PRINT1
@@ -92,7 +95,7 @@ void uart_print_thread()
     {   no_msg = k_msgq_get(&printq, &log, K_NO_WAIT); // wait for new item on queue
         if (no_msg == 0)
         {
-            time_diff = get_time_diff();
+           //  time_diff = get_time_diff();
             #ifdef DEBUG_PRINT1
                 printk("msg %d %s ", counter, log);  // \n and \r already in log
             #else
@@ -101,7 +104,7 @@ void uart_print_thread()
             #endif
 
             // 
-            time_diff = get_time_diff();
+           // time_diff = get_time_diff();
      //   printk("# time for printk: %u\n", time_diff);
             counter++;
             // led_toggle();
