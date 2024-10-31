@@ -149,7 +149,7 @@ void print_state_thread()
              state_data1.adc[4], state_data1.adc[5], state_data1.adc[6], state_data1.adc[7]);
         #endif
         printq_add(log);
-        k_msleep(print_wait);
+        k_msleep(print_wait); // should include execuion time of rest of this thread to make loop time accurate- maybe 2 ms?
     }
 }
 

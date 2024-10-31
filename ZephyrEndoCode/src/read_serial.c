@@ -177,14 +177,7 @@ void uart_input_thread(void)
           // input commmand should be added to command queue
           count = count + new_count;
 
-          // time_int = get_time_diff();
-          /* note snprintf is slow and takes ~100 us to print float and 50 us to print int 
-          * also, printq can fall behind with more than 1 string per ms 
-          */
-          snprintf(cmd_string, sizeof(cmd_string), "%s %d, ", 
-                       cmd_struct.cmd, cmd_struct.value);
-         // printq_add(log); 
-          strcat(log, cmd_string);
+          // time_int = get_time_diff();     
 
           /* **************
           time_int = get_time_diff();
@@ -193,12 +186,19 @@ void uart_input_thread(void)
           printq_add(log); 
           */ 
           i++;
+#ifdef DEBUG_PRINT1
+          snprintf(cmd_string, sizeof(cmd_string), "%s %d, ", 
+                       cmd_struct.cmd, cmd_struct.value);
+         // printq_add(log); 
+          strcat(log, cmd_string);
+#endif
+
           /* cmdq can fall behind with burst from python, which is not real time*/
           /* to keep queue from overflowing when full, drop two commands, then add new command*/
            // non-blocking, wait=0 ==> return immediately if the queue is already full.
           if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // send data to back of queue,
           {   cmdq_used = k_msgq_num_used_get (&cmdq);
-              printk("# uart_input_thread: cmdq put failed. Used %d with %s\n", cmdq_used, cmd_struct.cmd); 
+           //   printk("# uart_input_thread: cmdq put failed. Used %d with %s\n", cmdq_used, cmd_struct.cmd); 
               k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop first
               k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop second
               if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // try again to send data to back of queue
@@ -206,9 +206,15 @@ void uart_input_thread(void)
           }
           
         }
+
+        /* note snprintf is slow and takes ~100 us to print float and 50 us to print int 
+          * also, printq can fall behind with more than 1 string per ms 
+          */
+#ifdef DEBUG_PRINT1
         strcat(log,"\n");
         // snprintf(log, sizeof(log), " \n"); // end command string
         printq_add(log); 
+#endif
     }
 
 

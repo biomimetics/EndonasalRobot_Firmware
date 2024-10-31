@@ -11,7 +11,10 @@ import sys
 import threading
 from queue import Queue
 from queue import LifoQueue
-sendQ = Queue()
+
+sendBufSize = 5 
+sendQ = Queue(sendBufSize)  # FIFO only allow 4 commands, 
+# to prevent overflow in STM32
 stateQ = LifoQueue()  # keeping track of remote state
 # always use newest data
 start_time = time.time()
@@ -155,8 +158,11 @@ def sendCmd():
    while not sendQ.empty():
        message = sendQ.get()  # flush any initial message command queue
    while not sendStop.is_set():
-       time.sleep(0.001)   # give other threads time to run
+       time.sleep(0)   # give other threads time to run
        if not sendQ.empty():
+           if (sendQ.qsize() == sendBufSize):  # buffer full 
+               print("sendQ full")
+               message = sendQ.get() # discard oldest element from FIFO queue, to not overload STM32
        # get message if any from command queue
            message = sendQ.get()
  #          print('sendCmd %d: message=%s' % (i, message))
@@ -193,6 +199,7 @@ def makePressureCmdString(regulator_vals):
 def makePressureCmd(regulator_vals):
     message_arr = makePressureCmdString(regulator_vals)
     for message in message_arr:
+        time.sleep(0.001)  # give time to send command from sendQ
         sendQ.put(message+b'\n')
   
         #print(message)
@@ -232,9 +239,12 @@ def control_loop():
  
 # =============================================================================
 # need delay as Zephyr can't handle all the text in messages.
-            if ((i %2) == 0):  # set rate to 100Hz/4 = 25 Hz
+            if ((i % 1) == 0):  # set rate to 100Hz/4 = 25 Hz
                 message = makeCmdString('PFRQ1', value) + makeCmdString('PFRQ2', -value)
+                if (sendQ.qsize() == sendBufSize):  # buffer full 
+                    time.sleep(0.004)  # give time to send command from sendQ
                 sendQ.put(message+b'\n')
+                time.sleep(0.001)  # give time to send command from sendQ
                 pressVal = 12.5*(1+np.sin(2*np.pi*state.time/10))
                 pressSet = np.array([pressVal, pressVal,pressVal,pressVal,pressVal,pressVal,
                                      pressVal,pressVal,pressVal,pressVal,pressVal,pressVal])                             
@@ -242,7 +252,7 @@ def control_loop():
             i = i+1 
 
             if ((i%100) == 0):
-                print('step %d  stateQ size= %d' % (i,stateQ.qsize()))
+                print('step %d  stateQ size= %d  sendQ size = %d' % (i,stateQ.qsize(), sendQ.qsize()))
             time.sleep(0.001)  # should run at state update rate
         else:
    #         print('stateQ empty')

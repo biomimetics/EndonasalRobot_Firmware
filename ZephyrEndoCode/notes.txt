@@ -1,5 +1,20 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Oct. 31, 2024
+
+can sendq in python hold too many messages, which overflows Zephyr queue?
+Limit to 5 lines and Fifo for sendq. Drop oldest (first) when sendq gets
+5 entries.
+
+==> seems ok at 50 Hz, get printq add error at 100 Hz.
+
+change debugging to only echo commands in debugging DEBUG_PRINT1 
+commands are about 200 characters, so about 10 ms at 50 us/char
+So better to slow down sending commands, but keeping state reading 
+time.sleep(0.001) min resolution?
+
+
+
 Oct. 30, 2024
 
 at 25 Hz, died after 60,000 loops (600 seconds)
@@ -23,6 +38,10 @@ uart_printq.c, line 13 is already 8.
 
 Bunching up of commands from python, overflows buffer?: ok to just use newest instead of queue?
 Should use newest command. For cmdq, if full, pull off two to allow to catch up.
+
+printq still over flowed at 50 Hz. Maybe only print state unless debugging?
+add command for print mode?
+or never push comment on printq if would fill queue (save queue for state?)
 
 Could change python to busy wait on state update rather than use queue?
 
