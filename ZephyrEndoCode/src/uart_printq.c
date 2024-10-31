@@ -56,7 +56,9 @@ void printq_add(char *msg)
     {
         if(k_msgq_put(&printq, msg, K_NO_WAIT) != 0) // send data to back of queue,
         {  printq_used = k_msgq_num_used_get (&printq);
-           printk("# printq_add: printq put failed. Used %d with %s\n", printq_used, msg); 
+           printk("# printq_add: printq put failed. Used %d with %s\n", printq_used, msg);
+           
+            
         }
     }
     // non-blocking, wait=0 ==> return immediately if the queue is already full.

@@ -17,6 +17,17 @@ ok to miss input command? longer input queue just gives bigger latency.
 control_thread.c:K_MSGQ_DEFINE(cmdq, sizeof(struct cmd_struct_def), 8, 16); // 8 items max, align on 16 bytes
 ==> but have 12 PWM + 2 PFRQ. Change to 16 long.
 
+# printq_add: printq put failed ==> how many lines? Could have PFRQ + 3 PWM lines + state lines =5, so
+change printq
+uart_printq.c, line 13 is already 8.
+
+Bunching up of commands from python, overflows buffer?: ok to just use newest instead of queue?
+Should use newest command. For cmdq, if full, pull off two to allow to catch up.
+
+Could change python to busy wait on state update rather than use queue?
+
+prnwait for 10 ms, takes 12 ms. 
+
 
 
 Oct. 29, 2024

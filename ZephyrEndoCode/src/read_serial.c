@@ -122,8 +122,9 @@ void uart_input_thread(void)
     int j = 0;
     int count, new_count;
     char c; 
-    struct cmd_struct_def cmd_struct;    // local copy structure char[8] cmd, int value
+    struct cmd_struct_def cmd_struct, dummy_struct;    // local copy structure char[8] cmd, int value
     long time_int;
+    uint32_t cmdq_used;
     
     // console_getline_init();
    // console_init();
@@ -192,9 +193,18 @@ void uart_input_thread(void)
           printq_add(log); 
           */ 
           i++;
+          /* cmdq can fall behind with burst from python, which is not real time*/
+          /* to keep queue from overflowing when full, drop two commands, then add new command*/
            // non-blocking, wait=0 ==> return immediately if the queue is already full.
           if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // send data to back of queue,
-          {    printk("# uart_input_thread: cmdq put failed \n # "); } // add ' # ' for comment if queue over flowed
+          {   cmdq_used = k_msgq_num_used_get (&cmdq);
+              printk("# uart_input_thread: cmdq put failed. Used %d with %s\n", cmdq_used, cmd_struct.cmd); 
+              k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop first
+              k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop second
+              if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // try again to send data to back of queue
+              { printk("# uart_input_thread: cmdq put failed after 2 drops \n"); }
+          }
+          
         }
         strcat(log,"\n");
         // snprintf(log, sizeof(log), " \n"); // end command string
