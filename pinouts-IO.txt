@@ -1,0 +1,101 @@
+Pinouts IO used for STM32F446 nucleo-64 (stm32 dev board) 
+
+Updated to 12 PWM for Endonasal project 7/17/2024
+Assigned: 2 quadrature decoder inputs, 1 DAC, 8 PWM output, 2 stepper motor pulse frequency, 1 HX711 load cell
+
+
+Chip 	IO	Function	ST Morpho connector
+PA0		TIM5_CH1		CN7-28 quad encoder 5A (32 bit)
+PA1		TIM5_CH2		CN7-30 quad encoder 5B (32 bit)
+PA2		USART2_TX		-					-
+PA3		USART2_RX		-
+PA4		DAC1			CN7-32
+***PA5		DAC2			*CONFLICT with LD2* ***
+PA5		LD2 (green led)	CN10-11		
+PA6		TIM13_CH1		CN10-13	pulse frequency output #1 (Step motor 1)
+PA7		TIM14_CH1		CN10-15	pulse frequency output #2
+PA8		TIM1_CH1		CN10-23	used for PWM1 out
+PA9		TIM1_CH2		CN10-21	used for PWM2 out
+PA10	TIM1_CH3		CN10-33	used for PWM3 out
+PA11	TIM1_CH4		CN10-14	used for PWM4 out
+
+PA12	GPIOA_12		CN10-13 digital output 1
+
+PA13	JTMS-SWDIO		JTAG test mode select needed for debugger 1/5
+PA14	JTCK-SWCLK		JTAG Test clock needed for debugger 2/5
+PA15	JTDI			JTAG test data input needed for debugger 3/5
+
+***** GPIO PORT B ****
+PB0		ADC12_IN8		CN7-34
+PB1		ADC12_IN9		CN10-24
+PB2 	TIM2_CH4		CN10-22	used for HX711 PD_SCK
+
+PB3 	JTDO/TRACE		JTAG Test Data Output needed for debugging 4/5
+PB4		NJTRST			JTAG Test nReset needed for debugging 5/5
+PB5		GPIOB_5 Input 	CN10-29=CN9-5 used for HX711 #1 DOUT
+
+PB6 	TIM4_CH1		CN10-17	used for PWM5 out
+PB7 	TIM4_CH2		CN7-21	used for PWM6 out
+PB8 	TIM4_CH3		CN10-3	used for PWM7 out
+PB9 	TIM4_CH4		CN10-5	used for PWM8 out
+
+PB10	GPIOB_10		CN10-25 Quad encoder 5A index
+PB11	no connection
+PB12	GPIOB_12		CN10-16	Quad encoder 3 index  
+
+PB13	GPIOB_13		CN10-30	(step motor 1 direction)
+PB14	GPIOB_14		CN10-28	(step motor 2 direction)
+PB15	GPIOB_15		CN10-26	Step motor enable
+
+***** GPIO PORT C ****
+PC0		ADC123_IN10		CN7-38
+PC1		ADC123_IN11		CN7-36
+PC2		ADC123_IN12		CN7-35
+PC3		ADC123_IN13		CN7-37
+PC4		ADC123_IN14		CN10-34
+PC5		ADC123_IN15		CN10-6
+
+# for endonasal project:
+PC6		TIM8_CH1		CN10-4	used for PWM9 out
+PC7		TIM8_CH2		CN10-19	used for PWM10 out
+PC8		TIM8_CH3		CN10-2 used for PWM11 out
+PC9		TIM8_CH4		CN10-1 used for PWM12 out
+
+#PC6		TIM3_CH1		CN10-4	quadrature INA
+#PC7		TIM3_CH2		CN10-19	quadrature INB
+#PC8		GPIOC_8			CN10-2 digital output 2
+#PC9		GPIOC_9			CN10-1 digital output 3
+
+PC10	GPIO/SPI3_SCK
+PC11	GPIO/SPI_MISO
+PC12	GPIO/SPI3_MOSI
+
+PC13	GPIOC_13		CN7-23	digital output 4
+
+PC14	No connection	CN7-25	used by low speed clock
+PC15	No connection	CN7-27	used by low speed clock
+
+**************************************
+Timers used:
+TIM1: PWM1-4  (Advanced timer)
+TIM2: PD_SCK for HX711 using OnePulse mode to generate 40 us pulse CH4, PB2 (32 bit GP timer)
+TIM3: quadrature decoder input (16 bit GP timer)
+TIM4: PWM5-8 (16 bit GP timer)
+TIM5: quadrature decoder input (32 bit GP timer)
+TIM6: open	basic timer (no IO)
+TIM7: open	basic timer (no IO)
+TIM8: open	advanced timer
+	PA5/PA7/PC6, PB0/PB14/PC7, PB1/PB15/PC8, PC9
+TIM9: open	2 channel timer
+	PA2, PA3
+TIM10: open 	1 channel GP timer
+	PB8
+TIM11: open 	1 channel GP timer
+	PB9
+TIM12: open	2 channel timer
+	PB14, PB15
+TIM13, TIM14 pulse frequency output for stepper motor control (1 channel GP timer)
+	PA6, PA7
+
+
+	
