@@ -37,6 +37,7 @@ K_MSGQ_DEFINE(printq, TEXT_LINE_LENGTH, 8, 4); // 8 items max
 // use semaphor to only give 1 thread access to printq at a time
 K_SEM_DEFINE(printq_sem, 0,1); // in effect binary semaphore, max count of 1
 
+static char text_buffer[TEXT_LINE_LENGTH];
 
 /* size of stack area used by each thread */
 #define STACKSIZE 1024
@@ -69,14 +70,49 @@ void printq_init(uint32_t queue_length, uint32_t max_msg_length)
 
 }
 
+
+// return checksum character to append to a string
+uint16_t checksum(char *buffer)
+{   int i, j;
+    uint16_t sum = 0;
+    char number[7];
+    // printf("buffer =\n %s", buffer);
+    i = 0;
+    sum = 0;
+    /* stop before copying \n */
+    while( (buffer[i]!='\n') && (buffer[i]!= '\0') && (i< TEXT_LINE_LENGTH-4))
+    {
+      //  printf("i=%d char=%x \t", i, (int)buffer[i]);
+        sum += (unsigned char) buffer[i];
+        text_buffer[i] = buffer[i]; // copy text to strip \n character
+        i++;
+    }
+    // checksum doesn't include \n, just add up characters, and print as decimal for ease of reading in python - last 4 characters of line
+    sum = (sum & 0xffff); // trancate to 16 bit value
+    // printf("end of checksum. checksum %d %x\n", sum, sum);
+    snprintf(number, 7," %4x\n", sum); // <sp>+4 nums + \n + \0
+    for(j =0; j<7; j++)
+    { text_buffer[i+j] = number[j]; }
+    text_buffer[i+j+1]='\0';
+
+    return(sum);
+}
+
+
 // add an item to the print queue
+// textbuffer is set by checksum()
 void printq_add(char *msg)
 {   uint32_t printq_used;
+    uint16_t cksum;
+
+    cksum = checksum(msg);
+  //  printk("%s %4x\n", msg,cksum);
+  //  printk("%s", text_buffer);
     if(k_sem_take(&printq_sem, K_MSEC(50)))
     { printk("# printq access blocked by other thread. msg = %s", msg); } //assume msg has \n
     else
     {
-        if(k_msgq_put(&printq, msg, K_NO_WAIT) != 0) // send data to back of queue,
+        if(k_msgq_put(&printq, text_buffer, K_NO_WAIT) != 0) // send data to back of queue,
         {  printq_used = k_msgq_num_used_get (&printq);
            printk("# printq_add: printq put failed. Used %d with %s\n", printq_used, msg);
            
@@ -111,7 +147,7 @@ void start_print_thread(void)
 // Task for printing log
 void uart_print_thread()
 {   int no_msg;
-    uint32_t time_diff;
+    // uint32_t time_diff;
     uint32_t counter = 0;
     char log[TEXT_LINE_LENGTH + 1];
 

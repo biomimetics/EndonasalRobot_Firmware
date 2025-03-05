@@ -1,5 +1,16 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Mar 3, 2025
+
+adding checksum to printq_add, so that python can drop bad received
+serial.readline()
+
+can use strcat() to add checksum- but after \n?
+
+all messages have \n at end. Need to insert checksum before \n.
+Rewrite while doing checksum to not include \n
+
+
 Oct. 31, 2024
 
 can sendq in python hold too many messages, which overflows Zephyr queue?

@@ -82,7 +82,7 @@ return(cycles_spent);
 /* careful for timer overflow - need to change to 64 bit*/
 /* add time to print queue (use floating point)*/
 void print_time(void)
-{   char string[80];
+{   char log[80];
 
     uint32_t new_time;
     uint32_t time_fix;
@@ -93,10 +93,10 @@ void print_time(void)
     new_time = k_cycle_get_32(); //get number of cycles
     time_float = (double) new_time / (double) CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC;
     time_fix = (long) 1e6*time_float;
-    snprintf(string, 80,"# k_cycle_get_32. newtime= %u time_fix = %u, t=%g sec. \n", 
+    snprintf(log, 80,"# k_cycle_get_32. newtime= %u time_fix = %u, t=%g sec. \n", 
             new_time, time_fix, time_float);
-    printk("%s",string);
-    printq_add(string);
+    printk("%s",log);
+    printq_add(log);
     
 
    /* new_time64 = k_cycle_get_64();

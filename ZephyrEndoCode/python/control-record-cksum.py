@@ -48,7 +48,7 @@ from serial.tools import list_ports
 print('ports being used:')
 print([port.device for port in serial.tools.list_ports.comports()])
 ############## CHANGE COM PORT AS NEEDED *****
-ser = serial.Serial('COM13')
+ser = serial.Serial('COM12')
 ser.baudrate=230400
 
 
@@ -230,7 +230,7 @@ def control_loop():
     global pressSet
     pressSet = np.zeros(12)
     i = 0;
-    count = 6000
+    count = 2000
     state = StateStruct()
     print('control_loop- waiting for STM32READY (release RESET)\n')
     # makeCmd('PRNTWAIT', 5000)   # set wait time for state update in ms
