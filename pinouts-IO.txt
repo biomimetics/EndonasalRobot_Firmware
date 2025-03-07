@@ -19,7 +19,7 @@ PA9		TIM1_CH2		CN10-21	used for PWM2 out
 PA10	TIM1_CH3		CN10-33	used for PWM3 out
 PA11	TIM1_CH4		CN10-14	used for PWM4 out
 
-PA12	GPIOA_12		CN10-13 digital output 1
+PA12	GPIOA_12		CN10-12 digital output 1
 
 PA13	JTMS-SWDIO		JTAG test mode select needed for debugger 1/5
 PA14	JTCK-SWCLK		JTAG Test clock needed for debugger 2/5
