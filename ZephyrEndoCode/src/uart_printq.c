@@ -88,7 +88,7 @@ uint16_t checksum(char *buffer)
         i++;
     }
     // checksum doesn't include \n, just add up characters, and print as decimal for ease of reading in python - last 4 characters of line
-    sum = (sum & 0xffff); // trancate to 16 bit value
+    sum = (sum & 0xffff); // truncate to 16 bit value
     // printf("end of checksum. checksum %d %x\n", sum, sum);
     snprintf(number, 7," %4x\n", sum); // <sp>+4 nums + \n + \0
     for(j =0; j<7; j++)
@@ -159,7 +159,7 @@ void uart_print_thread()
             #ifdef DEBUG_PRINT1
                 printk("msg %d %s ", counter, log);  // \n and \r already in log
             #else
-                printk("%s ", log);  // \n and \r already in log
+                printk("%s", log);  // \n and \r already in log
                 // printString(log); // already formatted, so quicker than printk??
             #endif
 

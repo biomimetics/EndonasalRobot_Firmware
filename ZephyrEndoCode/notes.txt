@@ -1,5 +1,14 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Mar. 6 added try/except for hex conversion to handle corrupted serial receive.
+Seems to be working as expected, storing received lines in file.
+
+Mar, 5, 2025
+
+end of line has appended <sp>1234\r\n, 67 characters to be omitted from checksum channel_cfg
+
+what about leading space?
+
 Mar 3, 2025
 
 adding checksum to printq_add, so that python can drop bad received

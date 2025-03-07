@@ -28,6 +28,9 @@
 # March 2025 added check sum to discard bad line reads
 
 
+# test just reading line without threads
+
+
 # import msvcrt, sys
 import numpy as np
 import serial
@@ -136,21 +139,20 @@ def processLine(textLine,index):
   #          print(index, end=',')
 
 
-# compare included checksum at end of line with line data    
+    
 def checkSumLine(line):
-#    print('line = %s' % (line))
-#    print(line[-6:2])
+    print('line = %s' % (line))
+#    print(line[-6:-2])
     try:
         sum = int(line[-6:-2], 16)  # checksum allow 4 digits- should check valid numbers...
     except:
         print("invalid check sum string: %s" % (line[-6:-2]))
-        sum = -1   # valid checksum will be positive number
+        sum = 0
     checksum = 0
-    temp = line[:-7]  # string of values, without checksum
+    temp = line[:-7]  # string of values, without last 7 char of <sp>1234\r\n 
     for char in temp:
         checksum += ord(char)
-    if (sum != checksum):
-        print('received Checksum = %x calc checksum = %x' % (sum, checksum))
+    print('received Checksum = %x calc checksum = %x' % (sum, checksum))
     return( (sum == checksum))    
 
 # thread receive state message from USB (STM32)
@@ -176,29 +178,26 @@ def rcvstate():
         line = ser.readline()
  #       print("raw line = %s" %(line))
         line = line.decode('ascii')   # read one \n terminated line, convert to string
- # check for comment line, printk from stm32 will not have checksum       
+# checksum section
         if ((line[0] == '*') | (line[0] == '#')):
             line = line.replace("\n","")  # replace extra line feed (leave \r in place)
-#            print('%d \t %s' %(index,line))
+            print('%d \t %s' %(index,line))
             fileout.write(str(line))
             processLine(line, index)  # convert text to state values, and place in stateQ
             index +=1
- # garbled line- e.g. interrupted read, restarted near end of line
         elif (len(line) < 10 ):    # short line needs at least cksum + \n to be valid
             print("partial line: %s" %(line))
-# potential whole ine
         else : 
             if (checkSumLine(line) == True):
                 line = line[:-6]   # remove checksum, \r\n, and trailing space
                 line = line + "\r"  # restore end of line feed
- #               print('%d \t %s' %(index,line))
+                print('%d \t %s' %(index,line))
 
  #       print('rcv index:%d. StateQ size %d\t%s' %(index,stateQ.qsize(),line))
                 fileout.write(str(line))
                 processLine(line, index)  # convert text to state values, and place in stateQ
 #        sleep(INTERVAL)   #don't delay, otherwise serial will be out of sync with control thread
                 index +=1
-        
         time.sleep(0.001)  # give up thread for other threads to run
     print("rcvstate: Closing file")
     fileout.close()
@@ -266,7 +265,7 @@ def control_loop():
     global pressSet
     pressSet = np.zeros(12)
     i = 0;
-    count = 1000
+    count = 100
     state = StateStruct()
     print('control_loop- waiting for STM32READY (release RESET)\n')
     # makeCmd('PRNTWAIT', 5000)   # set wait time for state update in ms
@@ -323,14 +322,14 @@ def writeFileHeader(dataFileName):
     fileout.close()
 
 # debug version- debugger has trouble with threads
-def main_test():
+def main():
     print("Data Logging for STM32, with USB connection- test threads\n")
     rcvStop.clear()
     rcvstate()   # run directly for debugging outside thread
     
 
     
-def main():
+def main1():
     print("Data Logging for STM32, with USB connection\n")
     print("Need lap top plugged in for high speed\n")
     stateThread = threading.Thread(group=None, target=rcvstate, name="stateThread")

@@ -123,7 +123,7 @@ void print_state()
 // need to use lock so do not get partial (mixed) ints/floats
 
     snprintf(log, sizeof(log),
-            "t=%8.3f hx711=%d  qdec3,5 %6d%6d  adc8-15 %5d%5d%5d%5d%5d%5d%5d%5d\n", 
+            "t=%4.3f hx711=%d  qdec3,5 %6d%6d  adc8-15 %5d%5d%5d%5d%5d%5d%5d%5d\n", 
              state_data.time_stamp,  state_data.hx711, state_data.qdec3, state_data.qdec5,
              state_data.adc[0], state_data.adc[1],state_data.adc[2],state_data.adc[3],
              state_data.adc[4], state_data.adc[5], state_data.adc[6], state_data.adc[7]);
@@ -167,7 +167,7 @@ void print_state_thread()
              state_data1.time_stamp,  state_data1.hx711, state_data1.qdec3, state_data1.qdec5);
         #else
         snprintf(log, sizeof(log),
-            "%9.4f,%9d,%6d,%6d,%5d, %5d, %5d, %5d, %5d, %5d, %5d, %5d\n", 
+            "%6.4f,%9d,%6d,%6d,%5d, %5d, %5d, %5d, %5d, %5d, %5d, %5d\n", 
              state_data1.time_stamp,  state_data1.hx711, state_data1.qdec3, state_data1.qdec5,
              state_data1.adc[0], state_data1.adc[1],state_data1.adc[2],state_data1.adc[3],
              state_data1.adc[4], state_data1.adc[5], state_data1.adc[6], state_data1.adc[7]);
