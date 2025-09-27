@@ -141,6 +141,7 @@ def makePressureCmdString(regulator_vals):
 
 def makePressureCmd():
     global regulator_vals, solenoid_vals
+    # print('regular', regulator_vals)
     message_arr = makePressureCmdString(regulator_vals)
     for message in message_arr:
         sendQ.put(message+b'\n')
@@ -274,7 +275,7 @@ def force_thread(force_sensor, q_output):
 def dumpQ(q, component, name, value, time):
     q.put((component,name,value,time))
 
-def input_thread():
+def input_thread(q_output):
     global regulator_vals,solenoid_vals, start_characterization
     while True:
         try:
@@ -300,6 +301,9 @@ def input_thread():
                         if numericValues[1] >= 0 and numericValues[1] <= max_pressure:
                             regulator_vals[int(numericValues[0])-1] = numericValues[1]
                 print(regulator_vals)
+                makePressureCmd()
+                for i, val in enumerate(regulator_vals):
+                    dumpQ(q_output, 'regulator', 'PWM{}'.format(i+1), val, time.time()-t0)
             elif type == 'p':
                 print('no pressure sensor')
                 # print('{0} {1} {2} {3} {4} {5} {6} {7}'.format(sensor1, sensor2, sensor3, sensor4, sensor5, sensor6, sensor7, sensor8))
@@ -370,7 +374,7 @@ def main(control_loop, q_output, result_folder, use_force=False):
         forceThread.start()
 
 # =============================================================================
-    userThread = threading.Thread(target=input_thread, daemon=True)
+    userThread = threading.Thread(target=input_thread, args=(q_output,), daemon=True)
     userThread.start()
 
     print('Threads started. ctrl C to quit')
@@ -434,8 +438,8 @@ def try_main(*args, **kwargs):
         # should also close file
  #       exit()
 if __name__ == '__main__':
-    # q_output = queue.Queue()
-    try_main()
+    q_output = queue.Queue()
+    try_main(None, q_output, None)
     # q_output_list = []
     # while not q_output.empty():
         # q_output_list.append(q_output.get())
