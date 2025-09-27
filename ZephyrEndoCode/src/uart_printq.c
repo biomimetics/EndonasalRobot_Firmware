@@ -1,3 +1,25 @@
+/* MIT License
+
+Copyright (c) 2024 Regents of The Regents of the University of California
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. */
+
 // Includes
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,12 +71,17 @@ void printq_init(uint32_t queue_length, uint32_t max_msg_length)
 
 // add an item to the print queue
 void printq_add(char *msg)
-{   if(k_sem_take(&printq_sem, K_MSEC(50)))
+{   uint32_t printq_used;
+    if(k_sem_take(&printq_sem, K_MSEC(50)))
     { printk("# printq access blocked by other thread. msg = %s", msg); } //assume msg has \n
     else
     {
         if(k_msgq_put(&printq, msg, K_NO_WAIT) != 0) // send data to back of queue,
-        {    printk("# printq_add: printq put failed \n"); }
+        {  printq_used = k_msgq_num_used_get (&printq);
+           printk("# printq_add: printq put failed. Used %d with %s\n", printq_used, msg);
+           
+            
+        }
     }
     // non-blocking, wait=0 ==> return immediately if the queue is already full.
     #ifdef DEBUG_PRINT1
@@ -92,7 +119,7 @@ void uart_print_thread()
     {   no_msg = k_msgq_get(&printq, &log, K_NO_WAIT); // wait for new item on queue
         if (no_msg == 0)
         {
-            time_diff = get_time_diff();
+           //  time_diff = get_time_diff();
             #ifdef DEBUG_PRINT1
                 printk("msg %d %s ", counter, log);  // \n and \r already in log
             #else
@@ -101,7 +128,7 @@ void uart_print_thread()
             #endif
 
             // 
-            time_diff = get_time_diff();
+           // time_diff = get_time_diff();
      //   printk("# time for printk: %u\n", time_diff);
             counter++;
             // led_toggle();

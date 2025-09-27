@@ -1,3 +1,31 @@
+# =============================================================================
+# /* MIT License
+# 
+# Copyright (c) 2024 Regents of The Regents of the University of California
+# 
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# 
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE. */
+# 
+# /* driver interface use user LED
+# * connected to GPIO PA5 on STM32 F446RE nucleo board
+# */
+# =============================================================================
+
 #  Record USB Zephyr STM32 data from USB to file
 # October 2024, R.S. Fearing
 # exercise communication
@@ -11,7 +39,10 @@ import sys
 import threading
 from queue import Queue
 from queue import LifoQueue
-sendQ = Queue()
+
+sendBufSize = 5 
+sendQ = Queue(sendBufSize)  # FIFO only allow 4 commands, 
+# to prevent overflow in STM32
 stateQ = LifoQueue()  # keeping track of remote state
 # always use newest data
 start_time = time.time()
@@ -155,8 +186,11 @@ def sendCmd():
    while not sendQ.empty():
        message = sendQ.get()  # flush any initial message command queue
    while not sendStop.is_set():
-       time.sleep(0.001)   # give other threads time to run
+       time.sleep(0)   # give other threads time to run
        if not sendQ.empty():
+           if (sendQ.qsize() == sendBufSize):  # buffer full 
+               print("sendQ full")
+               message = sendQ.get() # discard oldest element from FIFO queue, to not overload STM32
        # get message if any from command queue
            message = sendQ.get()
  #          print('sendCmd %d: message=%s' % (i, message))
@@ -193,6 +227,7 @@ def makePressureCmdString(regulator_vals):
 def makePressureCmd(regulator_vals):
     message_arr = makePressureCmdString(regulator_vals)
     for message in message_arr:
+        time.sleep(0.001)  # give time to send command from sendQ
         sendQ.put(message+b'\n')
   
         #print(message)
@@ -212,7 +247,7 @@ def control_loop():
     pressSet = np.zeros(12)
     pressVal = 0  # value for pressure 0 to 25 psi
     i = 0;
-    count = 10000
+    count = 1000000
     state = StateStruct()
     print('control_loop- waiting for STM32READY (release RESET)\n')
     # makeCmd('PRNTWAIT', 5000)   # set wait time for state update in ms
@@ -232,9 +267,12 @@ def control_loop():
  
 # =============================================================================
 # need delay as Zephyr can't handle all the text in messages.
-            if ((i %4) == 0):  # set rate to 100Hz/4 = 25 Hz
+            if ((i % 1) == 0):  # set rate to 100Hz/4 = 25 Hz
                 message = makeCmdString('PFRQ1', value) + makeCmdString('PFRQ2', -value)
+                if (sendQ.qsize() == sendBufSize):  # buffer full 
+                    time.sleep(0.004)  # give time to send command from sendQ
                 sendQ.put(message+b'\n')
+                time.sleep(0.001)  # give time to send command from sendQ
                 pressVal = 12.5*(1+np.sin(2*np.pi*state.time/10))
                 pressSet = np.array([pressVal, pressVal,pressVal,pressVal,pressVal,pressVal,
                                      pressVal,pressVal,pressVal,pressVal,pressVal,pressVal])                             
@@ -242,7 +280,7 @@ def control_loop():
             i = i+1 
 
             if ((i%100) == 0):
-                print('step %d  stateQ size= %d' % (i,stateQ.qsize()))
+                print('step %d  stateQ size= %d  sendQ size = %d' % (i,stateQ.qsize(), sendQ.qsize()))
             time.sleep(0.001)  # should run at state update rate
         else:
    #         print('stateQ empty')

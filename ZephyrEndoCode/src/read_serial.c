@@ -1,3 +1,26 @@
+/* MIT License
+
+Copyright (c) 2024 Regents of The Regents of the University of California
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. */
+
+
 /* thread for reading serial input without blocking
 * serial input is written to command queue for asynchronous processing 
 */
@@ -122,8 +145,9 @@ void uart_input_thread(void)
     int j = 0;
     int count, new_count;
     char c; 
-    struct cmd_struct_def cmd_struct;    // local copy structure char[8] cmd, int value
+    struct cmd_struct_def cmd_struct, dummy_struct;    // local copy structure char[8] cmd, int value
     long time_int;
+    uint32_t cmdq_used;
     
     // console_getline_init();
    // console_init();
@@ -176,14 +200,7 @@ void uart_input_thread(void)
           // input commmand should be added to command queue
           count = count + new_count;
 
-          // time_int = get_time_diff();
-          /* note snprintf is slow and takes ~100 us to print float and 50 us to print int 
-          * also, printq can fall behind with more than 1 string per ms 
-          */
-          snprintf(cmd_string, sizeof(cmd_string), "cmd=%s value=%d, ", 
-                       cmd_struct.cmd, cmd_struct.value);
-         // printq_add(log); 
-          strcat(log, cmd_string);
+          // time_int = get_time_diff();     
 
           /* **************
           time_int = get_time_diff();
@@ -192,13 +209,35 @@ void uart_input_thread(void)
           printq_add(log); 
           */ 
           i++;
+#ifdef DEBUG_PRINT1
+          snprintf(cmd_string, sizeof(cmd_string), "%s %d, ", 
+                       cmd_struct.cmd, cmd_struct.value);
+         // printq_add(log); 
+          strcat(log, cmd_string);
+#endif
+
+          /* cmdq can fall behind with burst from python, which is not real time*/
+          /* to keep queue from overflowing when full, drop two commands, then add new command*/
            // non-blocking, wait=0 ==> return immediately if the queue is already full.
           if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // send data to back of queue,
-          {    printk("# uart_input_thread: cmdq put failed \n"); }
+          {   cmdq_used = k_msgq_num_used_get (&cmdq);
+           //   printk("# uart_input_thread: cmdq put failed. Used %d with %s\n", cmdq_used, cmd_struct.cmd); 
+              k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop first
+              k_msgq_get(&cmdq, &dummy_struct, K_NO_WAIT); // drop second
+              if(k_msgq_put(&cmdq, &cmd_struct, K_NO_WAIT) != 0) // try again to send data to back of queue
+              { printk("# uart_input_thread: cmdq put failed after 2 drops \n"); }
+          }
+          
         }
+
+        /* note snprintf is slow and takes ~100 us to print float and 50 us to print int 
+          * also, printq can fall behind with more than 1 string per ms 
+          */
+#ifdef DEBUG_PRINT1
         strcat(log,"\n");
         // snprintf(log, sizeof(log), " \n"); // end command string
         printq_add(log); 
+#endif
     }
 
 

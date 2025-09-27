@@ -1,5 +1,54 @@
 Notes on using STM32F446 Nucleo-64 with Zephyr
 
+Oct. 31, 2024
+
+can sendq in python hold too many messages, which overflows Zephyr queue?
+Limit to 5 lines and Fifo for sendq. Drop oldest (first) when sendq gets
+5 entries.
+
+==> seems ok at 50 Hz, get printq add error at 100 Hz.
+
+change debugging to only echo commands in debugging DEBUG_PRINT1 
+commands are about 200 characters, so about 10 ms at 50 us/char
+So better to slow down sending commands, but keeping state reading 
+time.sleep(0.001) min resolution?
+
+
+
+Oct. 30, 2024
+
+at 25 Hz, died after 60,000 loops (600 seconds)
+# uart_input_thread: cmdq put failed 
+maybe change to fail more gracefully?
+warning message crashes stream due to linefeed and then missing #
+try adding trailing #? ==> printk can interrupt middle of line and corrupt read.
+printk to queue? but if queue is overflowed, will jam it up.
+# printq_add: printq put failed 
+
+maybe make printq longer, or add delay (print fewer characters?)
+
+ok to miss input command? longer input queue just gives bigger latency.
+
+control_thread.c:K_MSGQ_DEFINE(cmdq, sizeof(struct cmd_struct_def), 8, 16); // 8 items max, align on 16 bytes
+==> but have 12 PWM + 2 PFRQ. Change to 16 long.
+
+# printq_add: printq put failed ==> how many lines? Could have PFRQ + 3 PWM lines + state lines =5, so
+change printq
+uart_printq.c, line 13 is already 8.
+
+Bunching up of commands from python, overflows buffer?: ok to just use newest instead of queue?
+Should use newest command. For cmdq, if full, pull off two to allow to catch up.
+
+printq still over flowed at 50 Hz. Maybe only print state unless debugging?
+add command for print mode?
+or never push comment on printq if would fill queue (save queue for state?)
+
+Could change python to busy wait on state update rather than use queue?
+
+prnwait for 10 ms, takes 12 ms. 
+
+
+
 Oct. 29, 2024
 
 test max rate for sending PFRQ and 12 PWM commands
