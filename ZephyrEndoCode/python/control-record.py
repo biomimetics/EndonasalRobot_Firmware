@@ -1,7 +1,7 @@
 # MIT License
 
 # Copyright (c) 2024 Regents of The Regents of the University of California
-
+'''
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -19,7 +19,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. */
-
+'''
 
 #  Record USB Zephyr STM32 data from USB to file
 # August 2024, R.S. Fearing
@@ -61,7 +61,7 @@ sendStop.clear()
 controlStop = threading.Event()
 controlStop.clear()
 
-ser = serial.Serial('COM5')
+ser = serial.Serial('/dev/ttyACM0')
 ser.baudrate=230400
 
 # readline documentation https://docs.python.org/3/library/io.html#io.IOBase.readline
@@ -177,7 +177,7 @@ def sendCmd():
        if not sendQ.empty():
        # get message if any from command queue
            message = sendQ.get()
- #          print('sendCmd %d: message=%s' % (i, message))
+           print('sendCmd %d: message=%s' % (i, message))
            ser.write(message)   # send text to STM32, format is command word in text followed by short
            i=i+1 
    print('sendCmd: finished thread')

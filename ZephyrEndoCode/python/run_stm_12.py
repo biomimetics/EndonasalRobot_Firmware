@@ -39,7 +39,8 @@ from serial.tools import list_ports
 # list_ports.comports()  # Outputs list of available serial ports
 print('ports being used:')
 print([port.device for port in serial.tools.list_ports.comports()])
-
+for port in serial.tools.list_ports.comports():
+    print(f'{port.device}: {port.description}')
 #### CONSTANTS ###########
 data_file_name = '../Data/data.txt'
 telemetry = False
@@ -62,7 +63,7 @@ charStart.clear()
 charStop = threading.Event()
 charStop.clear()
 
-ser = serial.Serial('COM6')
+ser = serial.Serial('/dev/ttyACM0')
 ser.baudrate=230400
 
 class StateStruct():
@@ -166,8 +167,8 @@ def processLine(textLine,index):
     if (firstChar[0] == '#') or (firstChar[0] == '***'):
  #           print(textLine)
              # check here for # STM32READY before enabling control_loop
-            if(firstChar[1] == 'STM32READY'):  
-                controlStop.clear()   # only start control loop if get STM32READY message
+            if(firstChar[1] in ('STM32READY', 'parse_cmd')):  
+                controlStop.clear()   # only start control loop if get STM32READY message OR we send invalid command to recieve parse_cmd
     else:
         # print(textLine)
         temp=np.zeros(np.size(data))
@@ -353,6 +354,30 @@ def main(control_loop, q_output, result_folder, use_force=False):
     sendStop.clear()
     sendThread.start()
     time.sleep(2) # give time before control thread starts
+    
+    # handshake: set controlStop and send "foo" until we see a "# foo ..." or "# STM32READY" line
+    def _wait_cleared(evt, timeout):
+        end = time.time() + timeout
+        while time.time() < end:
+            if not evt.is_set():
+                return True
+            time.sleep(0.01)
+        return False
+
+    print('Sending "foo" and waiting for "# parse_cmd ..." or "# STM32READY"')
+    controlStop.set()  # make sure the control thread waits until handshake completes
+    max_attempts = 5
+    for attempt in range(max_attempts):
+        sendQ.put(b'foo\n')
+        if _wait_cleared(controlStop, 2.0):
+            print('Received response on attempt', attempt+1)
+            break
+        else:
+            print('No response received, retry', attempt+1)
+    else:
+        print('No "# parse_cmd" or "# STM32READY" response after retries')
+    #
+
 # =============================================================================
     controlStop.set()  # only start control loop if get STM32READY message
     controlThread =threading.Thread(group=None, target=control_loop, args=(q_output,result_folder), name="controlThread")
