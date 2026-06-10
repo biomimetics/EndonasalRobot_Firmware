@@ -145,9 +145,15 @@ def setDisplacement(displacement, maxDis):
     pressure = displacement/maxDis*10+5
     return pressure
 
-def pressureToPWM(pressure):
-    desired_voltage = pressure/67*5
-    PWM = desired_voltage/3.3*PWM_PERIOD
+# def pressureToPWM(pressure):
+#     desired_voltage = pressure/67*5
+#     PWM = desired_voltage/3.3*PWM_PERIOD
+#     return PWM
+
+def pressureToPWM(pressure_psi):
+    pressure_Mpa = pressure_psi / 145.038
+    desired_voltage = pressure_Mpa / 0.5 * 5
+    PWM = np.clip(desired_voltage / 5.0 * 65535, 0, 65535).astype(int)
     return PWM
 
 def voltageToDAC(voltage):
@@ -162,7 +168,7 @@ def makeSolenoidCmdString(s_vals):
     return message_arr
 
 def makePressureCmdString(regulator_vals):
-    dac_vals = voltageToDAC(regulator_vals)
+    dac_vals = pressureToPWM(regulator_vals)
     message_arr = []
     message = b''
     for i, dv in enumerate(dac_vals):
@@ -340,15 +346,15 @@ def input_thread(q_output):
                 print(solenoid_vals)
                 makePressureCmd()
             elif type == 'r':
-                max_voltage = 5.0
+                max_pressure_psi = 30.0
                 if len(numericValues) == N_REGULATOR:
-                    is_within_range = np.all((numericValues >= 0) & (numericValues <= max_voltage))
+                    is_within_range = np.all((numericValues >= 0) & (numericValues <= max_pressure_psi))
                     if is_within_range:
                         regulator_vals = np.copy(numericValues)
                 elif len(numericValues) == 2:
                     channel = int(numericValues[0]) - 1
                     if 0 <= channel < N_REGULATOR:
-                        if numericValues[1] >= 0 and numericValues[1] <= max_voltage:
+                        if numericValues[1] >= 0 and numericValues[1] <= max_pressure_psi:
                             regulator_vals[channel] = numericValues[1]
                 print(regulator_vals)
                 makePressureCmd()
