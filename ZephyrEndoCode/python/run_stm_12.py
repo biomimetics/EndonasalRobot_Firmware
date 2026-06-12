@@ -65,7 +65,21 @@ charStart.clear()
 charStop = threading.Event()
 charStop.clear()
 
-ser = serial.Serial('/dev/ttyACM0')
+
+def find_serial_port():
+    ports = [port.device for port in serial.tools.list_ports.comports()]
+    # Prioritize common Linux ports for STM32
+    for p in ports:
+        if 'ttyACM' in p or 'ttyUSB' in p:
+            return p
+    # Fallback for Windows or if nothing else is found
+    if ports:
+        return ports[0]
+    return 'COM6'
+
+port_name = find_serial_port()
+
+ser = serial.Serial(port_name)
 ser.baudrate=230400
 
 class StateStruct():
@@ -162,10 +176,11 @@ def processLine(textLine,index):
     newState = StateStruct()    
     #  "t=","hx711","qdec3","qdec4", "adc8","adc9","adc10", "adc11","adc12","adc13","adc14","adc15"
     data = textLine.split(',')  # split on comma
-    # print('data ', data)
+    #print('data ', data)
     # print('textline ', textLine)
    # split first element on space delimiter to find #, which indicates a comment
     firstChar = data[0].split()
+    #print(firstChar[0])
     if (firstChar[0] == '#') or (firstChar[0] == '***'):
  #           print(textLine)
              # check here for # STM32READY before enabling control_loop
@@ -212,8 +227,9 @@ def rcvstate():
     index = 0
     while not rcvStop.is_set():
         line = ser.readline()
-        #print("raw line = %s" %(line))
-        line = line.decode('ascii')   # read one \n terminated line, convert to string
+        # print("raw line = %s" %(line))
+        # Decode serial line; drop any occasional non-ASCII noise bytes from the MCU
+        line = line.decode('ascii', errors='ignore')
         line = line.replace("\n","")  # replace extra line feed (leave \r in place)
  #       print('rcv index:%d. StateQ size %d\t%s' %(index,stateQ.qsize(),line))
         fileout.write(str(line))
@@ -298,6 +314,16 @@ pattern_dict = {
     #     [[3, 0], [4,20]],
     #     [[4, 0], [1,0]]
     # ],
+    'test': [
+        [[6, 20], [8, 0], [10, 0]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 0], [10, 20]],
+        [[6, 0], [8, 20], [10, 0]],
+    ],
     'left_forward': [
         [6, 20],
         [7, 20],
@@ -331,13 +357,57 @@ pattern_dict = {
         [[10, 0], [2, 0]]
     ],
     'both_forward': [
-       [[6, 20], [10, 20]],
-        [[7, 20], [11, 20]],
-        [[6, 0], [10, 0]],
-        [[5, 20], [9, 20]],
-        [[11,0 ], [8, 20], [7, 0]],
-        [[5, 0], [8, 0], [9, 0]]
-    ],
+       [[9, 20]],
+        [[10, 20]],
+        [[9, 0]],
+        [[8, 20]],
+        [[10, 0], [11, 20]],
+        [[8, 0], [11, 0]],
+     ],
+     'front_forward': [
+       [[2, 20]],
+        [[3, 10], [4, 20], [5, 0]],
+        [[2, 0], [1, 20]],
+        # [[1, 20]],
+        [[3, 0], [4, 0], [5, 20]],
+        [[1, 0], [5, 0]],
+     ],
+    'back_forward': [
+       [[9, 20]],  
+       [[10, 20], [11, 20]],  
+       [[10, 0], [9, 20]],  
+    #    [[9, 20]],  
+       [[11, 0], [5, 20]],
+       [[9, 0], [5, 0]],  
+     ],
+         'front_forward_tree': [
+       [[1, 20]],
+        [[2, 0]],
+        [[3, 0], [4, 20]],
+        [[2, 20]],
+        [[1, 0]],
+        [[4, 0]],
+        [[5, 20]],
+        [[5, 0]],
+ 
+     ],
+     'both_linear_forward': [
+       [[2, 20], [10, 20]],
+        [[3, 20], [4, 20], [11, 20]],
+        [[2, 0], [10, 0]],
+        [[1, 20], [9, 20]],
+        [[3, 0], [4, 0], [5, 20], [11, 0]],
+        [[1, 0], [5, 0], [9, 0]],
+     ],
+     
+  
+     'init_up': [
+        [1, 20],
+       [[4, 10], [2, 10]],
+       [[4, 10], [2, 10]],
+       [[4, 10], [2, 10]],  
+       [[1, 0]],  
+     ],
     'climb_up': [
         [[4, 10],[5, 20], [9, 20], [6, 20], [10, 20]],
         [[7, 20], [11, 20], [3, 13]],
@@ -351,6 +421,8 @@ pattern_dict = {
         [[1, 0]]
     ],
     'climb_up_linear': [
+
+
         [[4, 0],[5, 20], [9, 20], [6, 20], [10, 20]],
         [[7, 20], [11, 20], [3, 20], [2, 20]],
         [[6, 0], [10, 0]],
@@ -369,19 +441,22 @@ pattern_dict = {
 def input_thread(q_output):
     global regulator_vals,solenoid_vals, start_characterization, pattern_dict
 
-    def _apply_pattern_step(step_cmd):
+    def _apply_pattern_step(step_cmd, dwell_override=None):
         """Apply a single pattern step and return its dwell time."""
         print(f"  applying step: {step_cmd}")
         if np.array(step_cmd).ndim == 2:
             for reg, val in step_cmd:
                 regulator_vals[int(reg) - 1] = val
-            return 2
+            return dwell_override if dwell_override is not None else 2
         regulator_vals[int(step_cmd[0]) - 1] = step_cmd[1]
-        return 3 if step_cmd[1] == 0 else 1
+        if dwell_override is not None:
+            return dwell_override
+        return 2 if step_cmd[1] == 0 else 1
 
-    def _run_pattern_sequence(selected_patterns, repetitions):
+    def _run_pattern_sequence(selected_patterns, repetitions, dwell_override=None):
         repetitions = max(int(repetitions), 1)
-        print(f"Running patterns {selected_patterns} for {repetitions} repetition(s)")
+        print(f"Running patterns {selected_patterns} for {repetitions} repetition(s)"
+              + (f" with dwell {dwell_override}s" if dwell_override is not None else ""))
         for _ in range(repetitions):
             max_steps = max(len(pattern_dict[name]) for name in selected_patterns)
             for step_idx in range(max_steps):
@@ -391,7 +466,7 @@ def input_thread(q_output):
                     steps = pattern_dict.get(pattern_name, [])
                     if step_idx < len(steps):
                         print(f"  pattern '{pattern_name}' -> {steps[step_idx]}")
-                        step_durations.append(_apply_pattern_step(steps[step_idx]))
+                        step_durations.append(_apply_pattern_step(steps[step_idx], dwell_override))
                 if step_durations:
                     makePressureCmd()
                     time.sleep(max(step_durations))
@@ -415,7 +490,8 @@ def input_thread(q_output):
 
             if pattern_tokens:
                 n_rep = numeric_tokens[0] if numeric_tokens else 1
-                _run_pattern_sequence(pattern_tokens, n_rep)
+                dwell_override = numeric_tokens[1] if len(numeric_tokens) > 1 else None
+                _run_pattern_sequence(pattern_tokens, n_rep, dwell_override)
                 print("Pattern sequence done\n")
                 continue
 
@@ -517,7 +593,7 @@ def main(control_loop, q_output, result_folder, use_force=False):
     #
 
 # =============================================================================
-    controlStop.set()  # only start control loop if get STM32READY message
+    #controlStop.set()  # only start control loop if get STM32READY message
     controlThread =threading.Thread(group=None, target=control_loop, args=(q_output,result_folder), name="controlThread")
     controlThread.daemon = False  # want clean file close
     # controlStop.clear()   
