@@ -327,14 +327,131 @@ def force_thread(force_sensor, q_output):
 def dumpQ(q, component, name, value, time):
     q.put((component,name,value,time))
 
-def input_thread(q_output):
+def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_time=2):
     global regulator_vals,solenoid_vals, start_characterization
+    if pattern_dict is None:
+        pattern_dict = {}
+    if pressure_map is None:
+        pressure_map = {}
+
+    def _resolve_pattern_target(target):
+        mapped_target = pressure_map.get(target, target)
+        if isinstance(mapped_target, str):
+            target_type = mapped_target[0].lower()
+            target_idx = int(mapped_target[1:]) - 1
+            if target_type not in ('r', 's'):
+                raise ValueError(f"Unknown pressure_map target '{mapped_target}' for '{target}'")
+            return target_type, target_idx
+        return 'r', int(mapped_target) - 1
+
+    def _is_number(value):
+        return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
+
+    def _apply_pattern_step(step_cmd):
+        """Apply one named-pattern step and return the dwell time."""
+        print(f"  applying step: {step_cmd}")
+        if not isinstance(step_cmd, (list, tuple)):
+            raise ValueError(f"Pattern step must be a list of [target, value] pairs: {step_cmd}")
+
+        step_items = list(step_cmd)
+        dwell_time = default_dwell_time
+        if step_items and _is_number(step_items[-1]):
+            dwell_time = float(step_items.pop())
+
+        if not step_items:
+            raise ValueError(f"Pattern step has no target commands: {step_cmd}")
+
+        for item in step_items:
+            if not isinstance(item, (list, tuple)) or len(item) != 2:
+                raise ValueError(
+                    "Pattern steps must use [[target, value], ...] with an optional numeric dwell at the end: "
+                    f"{step_cmd}"
+                )
+
+        for target, val in step_items:
+            target_type, target_idx = _resolve_pattern_target(target)
+            if target_type == 'r':
+                if not 0 <= target_idx < len(regulator_vals):
+                    raise ValueError(f"Regulator target {target} maps outside regulator_vals")
+                regulator_vals[target_idx] = val
+            elif target_type == 's':
+                if not 0 <= target_idx < len(solenoid_vals):
+                    raise ValueError(f"Solenoid target {target} maps outside solenoid_vals")
+                solenoid_vals[target_idx] = val
+
+        return dwell_time
+
+    def _expand_pattern_steps(pattern_name, stack=None):
+        if stack is None:
+            stack = []
+        if pattern_name not in pattern_dict:
+            raise ValueError(f"Pattern '{pattern_name}' is not defined")
+        if pattern_name in stack:
+            raise ValueError("Pattern references itself: " + " -> ".join(stack + [pattern_name]))
+
+        pattern_steps = pattern_dict[pattern_name]
+        is_composite = (
+            isinstance(pattern_steps, (list, tuple))
+            and len(pattern_steps) > 0
+            and all(isinstance(name, str) for name in pattern_steps)
+        )
+        if not is_composite:
+            return [[(pattern_name, step)] for step in pattern_steps]
+
+        expanded_children = [
+            _expand_pattern_steps(child_name, stack + [pattern_name])
+            for child_name in pattern_steps
+        ]
+        step_counts = [len(child_steps) for child_steps in expanded_children]
+        if len(set(step_counts)) != 1:
+            raise ValueError(
+                f"Composite pattern '{pattern_name}' requires equal child lengths; "
+                + ", ".join(f"{child}={count}" for child, count in zip(pattern_steps, step_counts))
+            )
+
+        expanded_steps = []
+        for step_idx in range(step_counts[0]):
+            simultaneous_steps = []
+            for child_steps in expanded_children:
+                simultaneous_steps.extend(child_steps[step_idx])
+            expanded_steps.append(simultaneous_steps)
+        return expanded_steps
+
+    def _run_pattern_sequence(pattern_name, repetitions):
+        repetitions = max(int(repetitions), 1)
+        expanded_steps = _expand_pattern_steps(pattern_name)
+        print(f"Running pattern '{pattern_name}' for {repetitions} repetition(s)")
+        for _ in range(repetitions):
+            for step_idx, simultaneous_steps in enumerate(expanded_steps):
+                print(f" step {step_idx + 1} / {len(expanded_steps)}")
+                step_durations = []
+                for source_name, step_cmd in simultaneous_steps:
+                    print(f"  pattern '{source_name}' -> {step_cmd}")
+                    step_durations.append(_apply_pattern_step(step_cmd))
+                if step_durations:
+                    makePressureCmd()
+                    for i, val in enumerate(regulator_vals):
+                        dumpQ(q_output, 'regulator', 'DAC{}'.format(i+1), val, time.time()-t0)
+                    for i, val in enumerate(solenoid_vals):
+                        dumpQ(q_output, 'solenoid', 'SOL{}'.format(i+1), val, time.time()-t0)
+                    time.sleep(max(step_durations))
+
     while True:
         try:
             input_values = input("Enter values for regulators, solenoids, or motors: ")
             val = input_values.split()
             if not val:
                 continue
+
+            if val[0] in pattern_dict:
+                if len(val) > 2:
+                    print("usage: <pattern_name> [iterations]")
+                    continue
+                n_rep = int(val[1]) if len(val) == 2 else 1
+                _run_pattern_sequence(val[0], n_rep)
+                print("Pattern sequence done\n")
+                continue
+
             type = str(val[0])
             numericValues = [float(val) for val in input_values.split()[1:]]
             numericValues = np.array(numericValues)
@@ -456,7 +573,8 @@ def main_test():
     rcvStop.clear()
     rcvstate()   # run directly for debugging outside thread
     
-def main(control_loop, q_output, result_folder, use_force=False):
+def main(control_loop, q_output, result_folder, use_force=False, pattern_dict=None,
+         pressure_map=None, default_dwell_time=2):
     print("Data Logging for STM32, with USB connection\n")
     stateThread = threading.Thread(group=None, target=rcvstate, name="stateThread")
     stateThread.daemon = False  # want clean file close
@@ -522,7 +640,11 @@ def main(control_loop, q_output, result_folder, use_force=False):
         forceThread.start()
 
 # =============================================================================
-    userThread = threading.Thread(target=input_thread, args=(q_output,), daemon=True)
+    userThread = threading.Thread(
+        target=input_thread,
+        args=(q_output, pattern_dict, pressure_map, default_dwell_time),
+        daemon=True
+    )
     userThread.start()
 
     print('Threads started. ctrl C to quit')
