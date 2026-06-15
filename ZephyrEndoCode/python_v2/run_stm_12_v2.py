@@ -344,6 +344,17 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
             return target_type, target_idx
         return 'r', int(mapped_target) - 1
 
+    def _set_mapped_target(target, value):
+        target_type, target_idx = _resolve_pattern_target(target)
+        if target_type == 'r':
+            if not 0 <= target_idx < len(regulator_vals):
+                raise ValueError(f"Regulator target {target} maps outside regulator_vals")
+            regulator_vals[target_idx] = value
+        elif target_type == 's':
+            if not 0 <= target_idx < len(solenoid_vals):
+                raise ValueError(f"Solenoid target {target} maps outside solenoid_vals")
+            solenoid_vals[target_idx] = 1 if value != 0 else 0
+
     def _is_number(value):
         return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
 
@@ -369,15 +380,7 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                 )
 
         for target, val in step_items:
-            target_type, target_idx = _resolve_pattern_target(target)
-            if target_type == 'r':
-                if not 0 <= target_idx < len(regulator_vals):
-                    raise ValueError(f"Regulator target {target} maps outside regulator_vals")
-                regulator_vals[target_idx] = val
-            elif target_type == 's':
-                if not 0 <= target_idx < len(solenoid_vals):
-                    raise ValueError(f"Solenoid target {target} maps outside solenoid_vals")
-                solenoid_vals[target_idx] = val
+            _set_mapped_target(target, val)
 
         return dwell_time
 
@@ -450,6 +453,34 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                 n_rep = int(val[1]) if len(val) == 2 else 1
                 _run_pattern_sequence(val[0], n_rep)
                 print("Pattern sequence done\n")
+                continue
+
+            if val[0] in pressure_map:
+                if len(val) % 2 != 0:
+                    print("usage: <pressure_map_name> <value> [<pressure_map_name> <value> ...]")
+                    continue
+
+                assignments = []
+                for target, value in zip(val[0::2], val[1::2]):
+                    if target not in pressure_map:
+                        print(f"Unknown pressure_map target '{target}'")
+                        break
+                    try:
+                        numeric_value = float(value)
+                    except ValueError:
+                        print(f"Invalid value '{value}' for pressure_map target '{target}'")
+                        break
+                    assignments.append((target, numeric_value))
+                else:
+                    for target, numeric_value in assignments:
+                        _set_mapped_target(target, numeric_value)
+                    print(regulator_vals)
+                    print(solenoid_vals)
+                    makePressureCmd()
+                    for i, reg_val in enumerate(regulator_vals):
+                        dumpQ(q_output, 'regulator', 'DAC{}'.format(i+1), reg_val, time.time()-t0)
+                    for i, sol_val in enumerate(solenoid_vals):
+                        dumpQ(q_output, 'solenoid', 'SOL{}'.format(i+1), sol_val, time.time()-t0)
                 continue
 
             type = str(val[0])

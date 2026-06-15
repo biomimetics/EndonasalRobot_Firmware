@@ -2,6 +2,7 @@ import time
 from run_stm_12_v2 import *
 
 default_dwell_time = 2
+default_r16_pressure = 20
 
 pressure_map = {
     'front_foot1': 's5',
@@ -152,6 +153,7 @@ if __name__ == '__main__':
         aruco_detector.start_video(result_folder)
 
     q_output = queue.Queue()
+    regulator_vals[15] = default_r16_pressure
     try_main(
         control_loop,
         q_output,
