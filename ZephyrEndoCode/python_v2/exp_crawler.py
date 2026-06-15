@@ -1,14 +1,14 @@
 import time
 from run_stm_12_v2 import *
 
-default_dwell_time = 2
+default_dwell_time = 1
 default_r16_pressure = 20
 
 pressure_map = {
     'front_foot1': 's5',
     'front_foot2': 's6',
     'front_up': 'r3', 
-    'front_down': 'r4',
+    'front_down': 'r3',
     'front_ext': 'r5',
     
     'middle_up': 'r6',
@@ -24,7 +24,7 @@ pressure_map = {
     'right_foot1': 'r14',
     'right_foot2': 'r15',
     'right_up': 'r1',
-    'right_down': 'r2',
+    'right_down': 'r1',
     'right_ext': 's7',
 }
 # make it possible to input code directly
@@ -37,40 +37,68 @@ pattern_dict = {
         [['front_up', 0], ['front_down', 0], ['front_ext', 20]],
         [['front_foot1', 0], ['front_ext', 0]]
     ],
-    'right_forward': [
+    'right_backward': [
         [['right_foot1', 20]],
-        [['right_up', 10], ['right_down', 20], ['right_ext', 0], 5],
+        [['right_up', 5], ['right_down', 10], ['right_ext', 0]],
         [['right_foot1', 0], ['right_foot2', 20]],
         [['right_up', 0], ['right_down', 0], ['right_ext', 20]],
         [['right_foot2', 0], ['right_ext', 0]]
     ],
-    'right_backward': [
+    'right_forward': [
         [['right_foot2', 20]],
-        [['right_up', 10], ['right_down', 20], ['right_ext', 0]],
-        [['right_foot2', 0], ['right_foot1', 20]],
-        [['right_up', 0], ['right_down', 0], ['right_ext', 20]],
+        [['right_up', 5], ['right_down', 5], ['right_ext', 0]],
+        [['right_foot2', 0]],
+        [ ['right_foot1', 20]],
+        [['right_up', 0], ['right_down', 0], ['right_ext', 8]],
         [['right_foot1', 0], ['right_ext', 0]]
     ],
-    'left_forward': [
+    'left_backward': [
         [['left_foot1', 20]],
-        [['left_up', 10], ['left_down', 20], ['left_ext', 0]],
+        [['left_up', 5], ['left_down', 10], ['left_ext', 0]],
         [['left_foot1', 0], ['left_foot2', 20]],
         [['left_up', 0], ['left_down', 0], ['left_ext', 20]],
         [['left_foot2', 0], ['left_ext', 0]]
     ],
-    'left_backward': [
+    'left_forward': [
         [['left_foot2', 20]],
-        [['left_up', 10], ['left_down', 20], ['left_ext', 0]],
-        [['left_foot2', 0], ['left_foot1', 20]],
-        [['left_up', 0], ['left_down', 0], ['left_ext', 20]],
+        [['left_up', 5], ['left_down', 5], ['left_ext', 0]],
+        [['left_foot2', 0], ],
+        [['left_foot1', 20]],
+        [['left_up', 0], ['left_down', 0], ['left_ext', 8]],
         [['left_foot1', 0], ['left_ext', 0]]
+    ],
+    'pitch_up': [
+        [['front_foot1', 20]],
+        [['front_ext', 20], ['front_up', 20],],
+        [['front_foot2', 20]],
+        [['middle_up', 20]],
+        [['front_foot1', 0], ['front_ext', 0], ['front_up', 0], ['front_foot2', 0], ['middle_up', 0], ['middle_ext', 8]],
     ],
     'turn_left': ['left_backward', 'right_forward'],
     'turn_right': ['left_forward', 'right_backward'],
     'both_forward': ['left_forward', 'right_forward'],
     'both_backward': ['left_backward', 'right_backward'],
+    'all_forward': [
+        [['left_foot2', 20], ['right_foot2', 20], ['left_foot1', 20], ['right_foot1', 20]],
+        [['middle_down', 20]],
+        [['middle_down', 0]],
+        [['left_foot2', 0], ['right_foot2', 0]],
+        [['front_foot1', 20]],
+        [['front_ext', 20], ['front_up', 20]],
+        [ ['front_foot2', 20]],
 
+    ],
+    'flip': [
+        [['middle_down', 20]],
+        [['middle_down', 0]],
+        [['left_foot1', 20], ['right_foot1', 20], ['left_foot2', 20], ['right_foot2', 20]],
+        [['left_up', 20], ['right_up', 20]],
+        [['middle_ext', 20]]
+    ]
 }
+# support shortcuts ('l', 'r')
+# all zero option
+# array of sstrings 
 
 def control_loop(q_output, result_folder): 
     global regulator_vals, solenoid_vals
