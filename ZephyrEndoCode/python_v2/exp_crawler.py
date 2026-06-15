@@ -26,42 +26,43 @@ pressure_map = {
     'right_down': 'r2',
     'right_ext': 's7',
 }
-
+# make it possible to input code directly
+#auto set r16 to 20
 pattern_dict = {
     'front_forward': [
-        [['front_foot1', 20]],
+        [['front_foot2', 20]],
         [['front_up', 10], ['front_down', 20], ['front_ext', 0]],
-        [['front_foot1', 0], ['front_foot2', 20]],
+        [['front_foot2', 0], ['front_foot1', 20]],
         [['front_up', 0], ['front_down', 0], ['front_ext', 20]],
-        [['front_foot2', 0], ['front_ext', 5]]
+        [['front_foot1', 0], ['front_ext', 0]]
     ],
     'right_forward': [
         [['right_foot1', 20]],
         [['right_up', 10], ['right_down', 20], ['right_ext', 0], 5],
         [['right_foot1', 0], ['right_foot2', 20]],
         [['right_up', 0], ['right_down', 0], ['right_ext', 20]],
-        [['right_foot2', 0], ['right_ext', 5]]
+        [['right_foot2', 0], ['right_ext', 0]]
     ],
     'right_backward': [
         [['right_foot2', 20]],
         [['right_up', 10], ['right_down', 20], ['right_ext', 0]],
         [['right_foot2', 0], ['right_foot1', 20]],
         [['right_up', 0], ['right_down', 0], ['right_ext', 20]],
-        [['right_foot1', 0], ['right_ext', 5]]
+        [['right_foot1', 0], ['right_ext', 0]]
     ],
     'left_forward': [
         [['left_foot1', 20]],
         [['left_up', 10], ['left_down', 20], ['left_ext', 0]],
         [['left_foot1', 0], ['left_foot2', 20]],
         [['left_up', 0], ['left_down', 0], ['left_ext', 20]],
-        [['left_foot2', 0], ['left_ext', 5]]
+        [['left_foot2', 0], ['left_ext', 0]]
     ],
     'left_backward': [
         [['left_foot2', 20]],
         [['left_up', 10], ['left_down', 20], ['left_ext', 0]],
         [['left_foot2', 0], ['left_foot1', 20]],
         [['left_up', 0], ['left_down', 0], ['left_ext', 20]],
-        [['left_foot1', 0], ['left_ext', 5]]
+        [['left_foot1', 0], ['left_ext', 0]]
     ],
     'turn_left': ['left_backward', 'right_forward'],
     'turn_right': ['left_forward', 'right_backward'],
