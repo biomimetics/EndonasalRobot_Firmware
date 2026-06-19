@@ -333,9 +333,12 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
         pattern_dict = {}
     if pressure_map is None:
         pressure_map = {}
+    pattern_dict = {str(name).lower(): steps for name, steps in pattern_dict.items()}
+    pressure_map = {str(name).lower(): target for name, target in pressure_map.items()}
 
     def _resolve_pattern_target(target):
-        mapped_target = pressure_map.get(target, target)
+        lookup_target = str(target).lower()
+        mapped_target = pressure_map.get(lookup_target, lookup_target)
         if isinstance(mapped_target, str):
             target_type = mapped_target[0].lower()
             target_idx = int(mapped_target[1:]) - 1
@@ -355,32 +358,27 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                 raise ValueError(f"Solenoid target {target} maps outside solenoid_vals")
             solenoid_vals[target_idx] = 1 if value != 0 else 0
 
-    def _is_number(value):
-        return isinstance(value, (int, float, np.integer, np.floating)) and not isinstance(value, bool)
-
     def _apply_pattern_step(step_cmd):
         """Apply one named-pattern step and return the dwell time."""
         print(f"  applying step: {step_cmd}")
-        if not isinstance(step_cmd, (list, tuple)):
-            raise ValueError(f"Pattern step must be a list of [target, value] pairs: {step_cmd}")
+        if not isinstance(step_cmd, str):
+            raise ValueError(f"Pattern step must be a comma-separated string: {step_cmd}")
 
-        step_items = list(step_cmd)
+        step_items = [item.strip() for item in step_cmd.split(',') if item.strip()]
         dwell_time = default_dwell_time
-        if step_items and _is_number(step_items[-1]):
-            dwell_time = float(step_items.pop())
+        if len(step_items) % 2 == 1:
+            try:
+                dwell_time = float(step_items.pop())
+            except ValueError:
+                raise ValueError(f"Pattern step has an unmatched target/value entry: {step_cmd}")
 
         if not step_items:
             raise ValueError(f"Pattern step has no target commands: {step_cmd}")
+        if len(step_items) % 2 != 0:
+            raise ValueError(f"Pattern step must use target,value pairs: {step_cmd}")
 
-        for item in step_items:
-            if not isinstance(item, (list, tuple)) or len(item) != 2:
-                raise ValueError(
-                    "Pattern steps must use [[target, value], ...] with an optional numeric dwell at the end: "
-                    f"{step_cmd}"
-                )
-
-        for target, val in step_items:
-            _set_mapped_target(target, val)
+        for target, val in zip(step_items[0::2], step_items[1::2]):
+            _set_mapped_target(target.lower(), float(val))
 
         return dwell_time
 
@@ -396,13 +394,13 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
         is_composite = (
             isinstance(pattern_steps, (list, tuple))
             and len(pattern_steps) > 0
-            and all(isinstance(name, str) for name in pattern_steps)
+            and all(isinstance(name, str) and name.lower() in pattern_dict for name in pattern_steps)
         )
         if not is_composite:
             return [[(pattern_name, step)] for step in pattern_steps]
 
         expanded_children = [
-            _expand_pattern_steps(child_name, stack + [pattern_name])
+            _expand_pattern_steps(child_name.lower(), stack + [pattern_name])
             for child_name in pattern_steps
         ]
         step_counts = [len(child_steps) for child_steps in expanded_children]
@@ -421,6 +419,7 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
         return expanded_steps
 
     def _run_pattern_sequence(pattern_name, repetitions):
+        pattern_name = pattern_name.lower()
         repetitions = max(int(repetitions), 1)
         expanded_steps = _expand_pattern_steps(pattern_name)
         print(f"Running pattern '{pattern_name}' for {repetitions} repetition(s)")
@@ -445,23 +444,25 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
             val = input_values.split()
             if not val:
                 continue
+            command = val[0].lower()
 
-            if val[0] in pattern_dict:
+            if command in pattern_dict:
                 if len(val) > 2:
                     print("usage: <pattern_name> [iterations]")
                     continue
                 n_rep = int(val[1]) if len(val) == 2 else 1
-                _run_pattern_sequence(val[0], n_rep)
+                _run_pattern_sequence(command, n_rep)
                 print("Pattern sequence done\n")
                 continue
 
-            if val[0] in pressure_map:
+            if command in pressure_map:
                 if len(val) % 2 != 0:
                     print("usage: <pressure_map_name> <value> [<pressure_map_name> <value> ...]")
                     continue
 
                 assignments = []
                 for target, value in zip(val[0::2], val[1::2]):
+                    target = target.lower()
                     if target not in pressure_map:
                         print(f"Unknown pressure_map target '{target}'")
                         break
@@ -483,7 +484,7 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                         dumpQ(q_output, 'solenoid', 'SOL{}'.format(i+1), sol_val, time.time()-t0)
                 continue
 
-            type = str(val[0])
+            type = command
             numericValues = [float(val) for val in input_values.split()[1:]]
             numericValues = np.array(numericValues)
             if type == 's':

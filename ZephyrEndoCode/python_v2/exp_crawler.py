@@ -5,100 +5,102 @@ default_dwell_time = 1
 default_r16_pressure = 20
 
 pressure_map = {
-    'front_foot1': 's5',
-    'front_foot2': 's6',
-    'front_up': 'r3', 
-    'front_down': 'r3',
-    'front_ext': 'r5',
+    'f_foot1': 's5',
+    'f_foot2': 's6',
+    'f_up': 'r3', 
+    'f_down': 'r4',
+    'f_ext': 'r5',
     
-    'middle_up': 'r6',
-    'middle_down': 'r7', 
-    'middle_ext': 'r8',
+    'm_up': 'r6',
+    'm_down': 'r7', 
+    'm_ext': 'r8',
     
-    'left_foot1': 'r9', 
-    'left_foot2': 'r10',
-    'left_up': 'r11', 
-    'left_down': 'r12',
-    'left_ext': 'r13',
+    'L_foot1': 'r9', 
+    'L_foot2': 'r10',
+    'L_up': 'r11', 
+    'L_down': 'r12',
+    'L_ext': 'r13',
 
-    'right_foot1': 'r14',
-    'right_foot2': 'r15',
-    'right_up': 'r1',
-    'right_down': 'r1',
-    'right_ext': 's7',
+    'R_foot1': 'r14',
+    'R_foot2': 'r15',
+    'R_up': 'r1',
+    'R_down': 'r2',
+    'R_ext': 's7',
 }
-# make it possible to input code directly
-#auto set r16 to 20
+
 pattern_dict = {
-    'front_forward': [
-        [['front_foot2', 20]],
-        [['front_up', 10], ['front_down', 20], ['front_ext', 0]],
-        [['front_foot2', 0], ['front_foot1', 20]],
-        [['front_up', 0], ['front_down', 0], ['front_ext', 20]],
-        [['front_foot1', 0], ['front_ext', 0]]
+    'f_forward': [
+        'f_foot2, 20',
+        'f_up, 10, f_down, 20, f_ext, 0',
+        'f_foot2, 0, f_foot1, 20',
+        'f_up, 0, f_down, 0, f_ext, 20',
+        'f_foot1, 0, f_ext, 0'
     ],
-    'right_backward': [
-        [['right_foot1', 20]],
-        [['right_up', 5], ['right_down', 10], ['right_ext', 0]],
-        [['right_foot1', 0], ['right_foot2', 20]],
-        [['right_up', 0], ['right_down', 0], ['right_ext', 20]],
-        [['right_foot2', 0], ['right_ext', 0]]
+    'R_backward': [
+        'R_foot1, 20',
+        'R_up, 5, R_down, 10, R_ext, 0',
+        'R_foot1, 0, R_foot2, 20',
+        'R_up, 0, R_down, 0, R_ext, 20',
+        'R_foot2, 0, R_ext, 0'
     ],
-    'right_forward': [
-        [['right_foot2', 20]],
-        [['right_up', 5], ['right_down', 5], ['right_ext', 0]],
-        [['right_foot2', 0]],
-        [ ['right_foot1', 20]],
-        [['right_up', 0], ['right_down', 0], ['right_ext', 8]],
-        [['right_foot1', 0], ['right_ext', 0]]
+    'R_forward': [
+        'R_foot2, 20',
+        'R_up, 5, R_down, 5, R_ext, 0',
+        'R_foot2, 0',
+        'R_foot1, 20',
+        'R_up, 0, R_down, 0, R_ext, 8',
+        'R_foot1, 0, R_ext, 0'
     ],
-    'left_backward': [
-        [['left_foot1', 20]],
-        [['left_up', 5], ['left_down', 10], ['left_ext', 0]],
-        [['left_foot1', 0], ['left_foot2', 20]],
-        [['left_up', 0], ['left_down', 0], ['left_ext', 20]],
-        [['left_foot2', 0], ['left_ext', 0]]
+    'L_backward': [
+        'L_foot1, 20',
+        'L_up, 5, L_down, 10, L_ext, 0',
+        'L_foot1, 0, L_foot2, 20',
+        'L_up, 0, L_down, 0, L_ext, 20',
+        'L_foot2, 0, L_ext, 0'
     ],
-    'left_forward': [
-        [['left_foot2', 20]],
-        [['left_up', 5], ['left_down', 5], ['left_ext', 0]],
-        [['left_foot2', 0], ],
-        [['left_foot1', 20]],
-        [['left_up', 0], ['left_down', 0], ['left_ext', 8]],
-        [['left_foot1', 0], ['left_ext', 0]]
+    'L_forward': [
+        'L_foot2, 20',
+        'L_up, 5, L_down, 5, L_ext, 0',
+        'L_foot2, 0',
+        'L_foot1, 20',
+        'L_up, 0, L_down, 0, L_ext, 8',
+        'L_foot1, 0, L_ext, 0'
     ],
     'pitch_up': [
-        [['front_foot1', 20]],
-        [['front_ext', 20], ['front_up', 20],],
-        [['front_foot2', 20]],
-        [['middle_up', 20]],
-        [['front_foot1', 0], ['front_ext', 0], ['front_up', 0], ['front_foot2', 0], ['middle_up', 0], ['middle_ext', 8]],
+        'f_foot1, 20',
+        'f_ext, 20, f_up, 20',
+        'f_foot2, 20',
+        'm_up, 20',
+        'f_foot1, 0, f_ext, 0, f_up, 0, f_foot2, 0, m_up, 0, m_ext, 8',
     ],
-    'turn_left': ['left_backward', 'right_forward'],
-    'turn_right': ['left_forward', 'right_backward'],
-    'both_forward': ['left_forward', 'right_forward'],
-    'both_backward': ['left_backward', 'right_backward'],
-    'all_forward': [
-        [['left_foot2', 20], ['right_foot2', 20], ['left_foot1', 20], ['right_foot1', 20]],
-        [['middle_down', 20]],
-        [['middle_down', 0]],
-        [['left_foot2', 0], ['right_foot2', 0]],
-        [['front_foot1', 20]],
-        [['front_ext', 20], ['front_up', 20]],
-        [ ['front_foot2', 20]],
-
+    'turn_left': ['L_backward', 'R_forward'],
+    'turn_right': ['L_forward', 'R_backward'],
+    'both_forward': ['L_forward', 'R_forward'],
+    'both_backward': ['L_backward', 'R_backward'],
+    'alL_forward': [
+        'L_foot2, 20, R_foot2, 20, L_foot1, 20, R_foot1, 20',
+        'm_down, 20',
+        'm_down, 0',
+        'L_foot2, 0, R_foot2, 0',
+        'f_foot1, 20',
+        'f_ext, 20, f_up, 20',
+        'f_foot2, 20',
     ],
     'flip': [
-        [['middle_down', 20]],
-        [['middle_down', 0]],
-        [['left_foot1', 20], ['right_foot1', 20], ['left_foot2', 20], ['right_foot2', 20]],
-        [['left_up', 20], ['right_up', 20]],
-        [['middle_ext', 20]]
+        'm_down, 20',
+        'm_down, 0',
+        'L_foot1, 20, R_foot1, 20, L_foot2, 20, R_foot2, 20',
+        'L_up, 20, R_up, 20',
+        'm_ext, 20'
+    ],
+    'zero': [
+        """f_foot1, 0, f_foot2, 0, f_up, 0, f_down, 0, f_ext, 0, 
+        m_up, 0, m_down, 0, m_ext, 0, 
+        L_foot1, 0, L_foot2, 0, L_up, 0, L_down, 0, L_ext, 0, 
+        R_foot1, 0, R_foot2, 0, R_up, 0, R_down, 0, R_ext, 0
+        """
     ]
 }
-# support shortcuts ('l', 'r')
-# all zero option
-# array of sstrings 
 
 def control_loop(q_output, result_folder): 
     global regulator_vals, solenoid_vals
