@@ -2,153 +2,39 @@ import time
 from run_stm_12_v2 import *
 
 default_dwell_time = 1
-default_r16_pressure = 15
+default_r16_pressure = 0
 
 
 pressure_map = {
-    'f_f1': 's1',
-    'f_f2': 's2',
-    'f_up': 'r2', 
-    'f_down': 'r1',
-    'f_ext': 'r3',
-    
-    'm_up': 'r5',
-    'm_down': 'r4', 
-    'm_ext': 'r6',
-    
-    'r_f1': 's5', 
-    'r_f2': 's6',
-    'r_up': 'r8', 
-    'r_down': 'r7',
-    'r_ext': 'r9',
-
-    'l_f1': 's3',
-    'l_f2': 's4',
-    'l_up': 'r11',
-    'l_down': 'r10',
-    'l_ext': 'r12',
+    'f1': 'r1',
+    'f2': 'r2',
+    'cont': 'r3',
 }
 
-#upside down
-
-# pressure_map = {
-#     'f_f1': 's1',
-#     'f_f2': 's2',
-#     'f_down': 'r2', 
-#     'f_up': 'r1',
-#     'f_ext': 'r3',
-    
-#     'm_down': 'r5',
-#     'm_up': 'r4', 
-#     'm_ext': 'r6',
-    
-#     'l_f1': 's5', 
-#     'l_f2': 's6',
-#     'l_down': 'r8', 
-#     'l_up': 'r7',
-#     'l_ext': 'r9',
-
-#     'r_f1': 's3',
-#     'r_f2': 's4',
-#     'r_down': 'r11',
-#     'r_up': 'r10',
-#     'r_ext': 'r12',
-# }
 
 
 pattern_dict = {
-    'f_forward': [
-        'f_f2, 15,0.5',
-        'f_up, 0, f_down, 10, f_ext, 0,1',
-        'f_f2, 0,0.3', 
-        'f_f1, 15, 0.3',
-        'f_up, 0, f_down, 0, f_ext, 15,0.5',
-        'f_f1, 0, f_ext, 0,0.3'
-    ],
-    'f_forward_slow': [
-        'f_f2, 15',
-        'f_up, 0, f_down, 15, f_ext, 0',
-        'f_f2, 0', 
-        'f_f1, 15',
-        'f_up, 0, f_down, 0, f_ext, 15',
-        'f_f1, 0, f_ext, 0,0.3'
-    ],
-    'R_backward': [
-        'R_f1, 15,0.3',
-        'R_up, 10, R_down, 15, R_ext, 0, 0.3',
-        'R_f1, 0,0.3',
-        'R_f2, 15,0.3',
-        'R_up, 0, R_down, 5, R_ext, 13,0.5',
-        'R_f2, 0, R_ext, 0, R_down, 0, 0.3'
-    ],
-    'L_backward': [
-        'L_f1, 15,0.3',
-        'L_up, 10, l_down, 15, L_ext, 0, 0.3',
-        'L_f1, 0,0.3',
-        'L_f2, 15,0.3',
-        'L_up, 0, L_down, 5, L_ext, 13, 0.5',
-        'L_f2, 0, L_ext, 0,l_down, 0, 0.3'
-    ],
-    'R_forward': [
-        'R_f2, 15,0.3',
-        'R_up, 5, R_down, 13, R_ext, 0, 0.5',
-        'R_f2, 0,0.3',
-        'R_f1, 15,0.3',
-        'R_up, 0, R_down, 5, R_ext, 13,1',
-        'R_f1, 0, R_ext, 0, R_down, 0, 0.3'
-    ],
-    'L_forward': [
-        'L_f2, 15,0.3',
-        'L_up, 5, l_down, 13, L_ext, 0, 0.5',
-        'L_f2, 0,0.3',
-        'L_f1, 15,0.3',
-        'L_up, 0, L_down, 5, L_ext, 13,1',
-        'L_f1, 0, L_ext, 0,l_down, 0, 0.3'
-    ],
-    'pitch_up': [
-        'f_f1, 15, 2',
-        'f_ext, 15, f_up, 15, 5',
-        'f_f2, 15',
-        'm_ext, 15, m_up, 10, 1',
-        'f_f1, 0, f_ext, 0, f_up, 0, f_f2, 0, m_up, 0, m_ext, 8',
-    ],
-    'turn_left': ['L_backward', 'R_forward'],
-    'turn_right': ['L_forward', 'R_backward'],
-    'both_forward': ['L_forward', 'R_forward'],
-    'all_forward': [
-        'l_forward', 'r_forward', 'f_forward'
-    ],
-    'both_backward': ['L_backward', 'R_backward'],
-    # 'alL_forward': [
-    #     'L_f2, 15, R_f2, 15, L_f1, 15, R_f1, 15',
-    #     'm_down, 15',
-    #     'm_down, 0',
-    #     'L_f2, 0, R_f2, 0',
-    #     'f_f1, 15',
-    #     'f_ext, 15, f_up, 15',
-    #     'f_f2, 15',
-    # ],
-    'flip': [
-        'm_down, 15',
-        'm_down, 0',
-        'L_f1, 15, R_f1, 15, L_f2, 15, R_f2, 15',
-        'L_up, 15, R_up, 15',
-        'm_ext, 15'
+    # 'f_forward': [
+    #     'f1, 15, 0.5',
+    #     'f2, 0,0.5',
+    #     'cont, 15,0.5',
+    #     'f2, 15,0.5', 
+    #     'f1, 0, 0.5',
+    #     'cont, 0, 2',
+    
+    #         ],
+    'forward': [
+        'f2, 13, 0.5',
+        'cont, 13,0.5',
+        'f2, 0,0.5', 
+        'f1, 13, 0.5',
+        'cont, 0, 2',
+        'f1, 0, 0.5'
     ],
     'zero': [
-        """f_f1, 0, f_f2, 0, f_up, 0, f_down, 0, f_ext, 0, 
-        m_up, 0, m_down, 0, m_ext, 0, 
-        L_f1, 0, L_f2, 0, L_up, 0, L_down, 0, L_ext, 0, 
-        R_f1, 0, R_f2, 0, R_up, 0, R_down, 0, R_ext, 0
-        """
-    ],
-    'test': [
-        'm_up, 0, m_down, 0, m_ext, 15,3',
-        'm_up, 15, m_down, 0, m_ext, 15,3',
-        'm_up, 0, m_down, 15, m_ext, 15,3',
-        'm_up, 15, m_down, 0, m_ext, 0,3',
-        'm_up, 0, m_down, 15, m_ext, 0,3',
+        'f1, 0, f2, 0, cont, 0'
     ]
+
 }
 
 def control_loop(q_output, result_folder): 

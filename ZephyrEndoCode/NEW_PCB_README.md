@@ -45,7 +45,7 @@ translates these to wire commands — you do **not** type the uppercase wire nam
 | Type | Form | Effect |
 |------|------|--------|
 | `s` | `s <ch> <0\|1>` or `s <8 values>` | Solenoid(s). Channel **1-indexed**. Re-sends all SOL1-8 **and** DAC1-16. |
-| `r` | `r <ch> <volts>` or `r <16 values>` | Regulator setpoint in **volts (0–5)**, channel **1-indexed**, clamped 0–5. Re-sends all DAC1-16 **and** SOL1-8. |
+| `r` | `r <ch> <psi> [<ch> <psi> ...]` or `r <16 values>` | Regulator pressure setpoint in **PSI (0–30)**, channel **1-indexed**. Re-sends all DAC1-16 **and** SOL1-8. |
 | `dac` | `dac <ch> <raw>` | Raw 16-bit DAC value; channel **1-indexed** (`dac 1` → wire `DAC1`). |
 | `neo` | `neo <mode>` | NeoPixel mode: 0=off, 1=DAC status (default), 2=rainbow. |
 | `m` | `m <motor> <mode>` | Stepper M1–M5; mode 0=off, 1=one rotation, 2=continuous. |
@@ -236,6 +236,15 @@ t=15.923  hx711=0  qdec3=0  qdec5=0
 ```text
 Enter values for regulators, solenoids, or motors: r 1 2.5
 [2.5 0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0.  0. ]
+```
+
+### Set multiple regulators
+
+**Command:** `r 1 0 2 0`
+
+```text
+Enter values for regulators, solenoids, or motors: r 1 0 2 0
+[0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0. 0.]
 ```
 
 ### Set all regulators

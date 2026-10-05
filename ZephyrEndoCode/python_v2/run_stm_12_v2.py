@@ -496,15 +496,33 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                 makePressureCmd()
             elif type == 'r':
                 max_pressure_psi = 30.0
+                valid_regulator_command = False
                 if len(numericValues) == N_REGULATOR:
                     is_within_range = np.all((numericValues >= 0) & (numericValues <= max_pressure_psi))
                     if is_within_range:
                         regulator_vals = np.copy(numericValues)
-                elif len(numericValues) == 2:
-                    channel = int(numericValues[0]) - 1
-                    if 0 <= channel < N_REGULATOR:
-                        if numericValues[1] >= 0 and numericValues[1] <= max_pressure_psi:
-                            regulator_vals[channel] = numericValues[1]
+                        valid_regulator_command = True
+                    else:
+                        print(f"Regulator pressures must be between 0 and {max_pressure_psi} psi")
+                elif len(numericValues) >= 2 and len(numericValues) % 2 == 0:
+                    updates = []
+                    for channel_value, pressure in zip(numericValues[0::2], numericValues[1::2]):
+                        channel = int(channel_value)
+                        if channel != channel_value or not 1 <= channel <= N_REGULATOR:
+                            print(f"Invalid regulator channel {channel_value:g}")
+                            break
+                        if pressure < 0 or pressure > max_pressure_psi:
+                            print(f"Regulator pressures must be between 0 and {max_pressure_psi} psi")
+                            break
+                        updates.append((channel - 1, pressure))
+                    else:
+                        for channel, pressure in updates:
+                            regulator_vals[channel] = pressure
+                        valid_regulator_command = True
+                else:
+                    print("usage: r <ch> <pressure> [<ch> <pressure> ...] or r <16 pressures>")
+                if not valid_regulator_command:
+                    continue
                 print(regulator_vals)
                 makePressureCmd()
                 for i, val in enumerate(regulator_vals):

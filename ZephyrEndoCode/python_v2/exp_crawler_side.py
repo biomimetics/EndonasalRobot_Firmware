@@ -2,7 +2,7 @@ import time
 from run_stm_12_v2 import *
 
 default_dwell_time = 1
-default_r16_pressure = 15
+default_r16_pressure = 12
 
 
 pressure_map = {
@@ -40,14 +40,15 @@ pressure_map = {
     
 #     'm_down': 'r5',
 #     'm_up': 'r4', 
-#     'm_ext': 'r6',
+#     'm_ext': 'r6', step 5 / 6
+
     
 #     'l_f1': 's5', 
 #     'l_f2': 's6',
 #     'l_down': 'r8', 
 #     'l_up': 'r7',
 #     'l_ext': 'r9',
-
+2
 #     'r_f1': 's3',
 #     'r_f2': 's4',
 #     'r_down': 'r11',
@@ -57,13 +58,29 @@ pressure_map = {
 
 
 pattern_dict = {
+    'pull': [
+        'l_f1, 15, r_f2, 15, l_f2, 15, r_f1, 15, 1',
+        'm_up, 8, 3',
+        'm_up, 0',
+        'l_f1, 0, r_f2, 0, l_f2, 0, r_f1, 0, 1',
+        
+    ],
+    'f_pitchup': [
+      'f_f1, 15, f_f2, 15, f_down, 10, 1',
+      'm_ext, 10,2',
+      'm_up, 10,0.5',
+      'f_f1, 0, f_f2, 0, f_down, 0, m_up, 2, m_ext, 0, 1',
+
+
+    ],
     'f_forward': [
         'f_f2, 15,0.5',
-        'f_up, 0, f_down, 10, f_ext, 0,1',
-        'f_f2, 0,0.3', 
+        # 'f_up, 10, f_down, 0, f_ext, 0,1',
+        'f_up, 5, f_down, 10, f_ext, 0,0.5',
+        'f_f2, 0,0.5', 
         'f_f1, 15, 0.3',
         'f_up, 0, f_down, 0, f_ext, 15,0.5',
-        'f_f1, 0, f_ext, 0,0.3'
+        'f_f1, 0, f_ext, 0,0.1'
     ],
     'f_forward_slow': [
         'f_f2, 15',
@@ -75,34 +92,34 @@ pattern_dict = {
     ],
     'R_backward': [
         'R_f1, 15,0.3',
-        'R_up, 10, R_down, 15, R_ext, 0, 0.3',
+        'R_up, 5, R_down, 13, R_ext, 0, 0.3',
         'R_f1, 0,0.3',
         'R_f2, 15,0.3',
-        'R_up, 0, R_down, 5, R_ext, 13,0.5',
+        'R_up, 0, R_down, 0, R_ext, 15,0.3',
         'R_f2, 0, R_ext, 0, R_down, 0, 0.3'
     ],
     'L_backward': [
         'L_f1, 15,0.3',
-        'L_up, 10, l_down, 15, L_ext, 0, 0.3',
+        'L_up, 5, L_down, 13, L_ext, 0, 0.3',
         'L_f1, 0,0.3',
         'L_f2, 15,0.3',
-        'L_up, 0, L_down, 5, L_ext, 13, 0.5',
-        'L_f2, 0, L_ext, 0,l_down, 0, 0.3'
+        'L_up, 0, L_down, 0, L_ext, 15,0.3',
+        'L_f2, 0, L_ext, 0, L_down, 0, 0.3'
     ],
     'R_forward': [
         'R_f2, 15,0.3',
-        'R_up, 5, R_down, 13, R_ext, 0, 0.5',
+        'R_up, 5, R_down, 13, R_ext, 0, 0.3',
         'R_f2, 0,0.3',
         'R_f1, 15,0.3',
-        'R_up, 0, R_down, 5, R_ext, 13,1',
+        'R_up, 0, R_down, 0, R_ext, 15,0.3',
         'R_f1, 0, R_ext, 0, R_down, 0, 0.3'
     ],
     'L_forward': [
         'L_f2, 15,0.3',
-        'L_up, 5, l_down, 13, L_ext, 0, 0.5',
+        'L_up, 5, l_down, 13, L_ext, 0, 0.3',
         'L_f2, 0,0.3',
         'L_f1, 15,0.3',
-        'L_up, 0, L_down, 5, L_ext, 13,1',
+        'L_up, 0, L_down, 0, L_ext, 15,0.3',
         'L_f1, 0, L_ext, 0,l_down, 0, 0.3'
     ],
     'pitch_up': [
