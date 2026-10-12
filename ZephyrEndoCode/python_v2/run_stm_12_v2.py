@@ -9,6 +9,8 @@ from queue import Queue
 from queue import LifoQueue
 import queue
 import pickle
+import json
+import os
 
 is_camera_available = False
 try:
@@ -30,6 +32,10 @@ except ImportError:
 
 sendQ = Queue()
 stateQ = LifoQueue()  # keeping track of remote state
+input_log_lock = threading.Lock()
+input_log_file = None
+command_log_file = None
+input_logging_start_time = None
 # always use newest data
 start_time = time.time()
 
@@ -195,9 +201,21 @@ def makePressureCmd():
             sendQ.put(message+b'\n')
             time.sleep(0.05)
 
+    if input_log_file is not None:
+        with input_log_lock:
+            timestamp = time.time()
+            values = [timestamp, timestamp - input_logging_start_time]
+            values.extend(float(value) for value in regulator_vals)
+            values.extend(int(value) for value in solenoid_vals)
+            input_log_file.write(','.join(str(value) for value in values) + '\n')
+            input_log_file.flush()
+
         #print(message)
 
 offset = 0
+# time, hx711, qdec3, qdec5 + 16 ADC channels
+N_TELEMETRY_FIELDS = 20
+
 def processLine(textLine,index):
     global offset
     newState = StateStruct()    
@@ -207,17 +225,32 @@ def processLine(textLine,index):
     # print('textline ', textLine)
    # split first element on space delimiter to find #, which indicates a comment
     firstChar = data[0].split()
+    if not firstChar:      # blank line: nothing to parse
+        return
     if (firstChar[0] == '#') or (firstChar[0] == '***'):
             print(textLine)
              # check here for # STM32READY before enabling control_loop
-            if(firstChar[1] in ('STM32READY', 'parse_cmd')):  
+            if(len(firstChar) > 1 and firstChar[1] in ('STM32READY', 'parse_cmd')):
                 controlStop.clear()   # only start control loop if get STM32READY message OR we send invalid command to recieve parse_cmd
     else:
+        # A telemetry frame is exactly 20 comma separated fields. A short or
+        # merged frame (lost bytes, or a line that lost its newline and ran into
+        # the next one) would otherwise be parsed with every field shifted, so a
+        # quiet channel reports another channel's value as a pressure spike.
+        if len(data) != N_TELEMETRY_FIELDS:
+            print('# skipped malformed telemetry frame (%d fields, expected %d)'
+                  % (len(data), N_TELEMETRY_FIELDS))
+            return
         # print(textLine)
         temp=np.zeros(np.size(data))
-        for i in range(0,np.size(data)):
-            temp[i] = float(data[i])
-        
+        try:
+            for i in range(0,np.size(data)):
+                temp[i] = float(data[i])
+        except ValueError:
+            print('# skipped unparseable telemetry frame')
+            return
+
+
         newState.time = temp[0]
         newState.hx711 = temp[1]  
         newState.qdec3 = temp[2]  
@@ -327,6 +360,15 @@ def force_thread(force_sensor, q_output):
 def dumpQ(q, component, name, value, time):
     q.put((component,name,value,time))
 
+def log_user_command(command_text):
+    if command_log_file is None:
+        return
+    timestamp = time.time()
+    elapsed = timestamp - input_logging_start_time
+    with input_log_lock:
+        csv.writer(command_log_file).writerow([timestamp, elapsed, command_text])
+        command_log_file.flush()
+
 def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_time=2):
     global regulator_vals,solenoid_vals, start_characterization
     if pattern_dict is None:
@@ -335,6 +377,9 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
         pressure_map = {}
     pattern_dict = {str(name).lower(): steps for name, steps in pattern_dict.items()}
     pressure_map = {str(name).lower(): target for name, target in pressure_map.items()}
+    pattern_stop = threading.Event()
+    pattern_command_lock = threading.Lock()
+    pattern_thread = None
 
     def _resolve_pattern_target(target):
         lookup_target = str(target).lower()
@@ -425,18 +470,60 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
         print(f"Running pattern '{pattern_name}' for {repetitions} repetition(s)")
         for _ in range(repetitions):
             for step_idx, simultaneous_steps in enumerate(expanded_steps):
+                if pattern_stop.is_set():
+                    print("Pattern sequence stopped\n")
+                    return
                 print(f" step {step_idx + 1} / {len(expanded_steps)}")
-                step_durations = []
-                for source_name, step_cmd in simultaneous_steps:
-                    print(f"  pattern '{source_name}' -> {step_cmd}")
-                    step_durations.append(_apply_pattern_step(step_cmd))
+                with pattern_command_lock:
+                    if pattern_stop.is_set():
+                        print("Pattern sequence stopped\n")
+                        return
+                    step_durations = []
+                    for source_name, step_cmd in simultaneous_steps:
+                        print(f"  pattern '{source_name}' -> {step_cmd}")
+                        step_durations.append(_apply_pattern_step(step_cmd))
+                    if pattern_stop.is_set():
+                        print("Pattern sequence stopped\n")
+                        return
+                    if step_durations:
+                        makePressureCmd()
+                        for i, val in enumerate(regulator_vals):
+                            dumpQ(q_output, 'regulator', 'DAC{}'.format(i+1), val, time.time()-t0)
+                        for i, val in enumerate(solenoid_vals):
+                            dumpQ(q_output, 'solenoid', 'SOL{}'.format(i+1), val, time.time()-t0)
                 if step_durations:
-                    makePressureCmd()
-                    for i, val in enumerate(regulator_vals):
-                        dumpQ(q_output, 'regulator', 'DAC{}'.format(i+1), val, time.time()-t0)
-                    for i, val in enumerate(solenoid_vals):
-                        dumpQ(q_output, 'solenoid', 'SOL{}'.format(i+1), val, time.time()-t0)
-                    time.sleep(max(step_durations))
+                    if pattern_stop.wait(max(step_durations)):
+                        print("Pattern sequence stopped\n")
+                        return
+        print("Pattern sequence done\n")
+
+    def _start_pattern_sequence(pattern_name, repetitions):
+        nonlocal pattern_thread
+        if pattern_thread is not None and pattern_thread.is_alive():
+            print("A pattern is already running. Type 'stop' to interrupt it.")
+            return
+        pattern_stop.clear()
+        def pattern_worker():
+            try:
+                _run_pattern_sequence(pattern_name, repetitions)
+            except ValueError as error:
+                print(f"Pattern error: {error}")
+
+        pattern_thread = threading.Thread(
+            target=pattern_worker,
+            name="patternThread",
+            daemon=True,
+        )
+        pattern_thread.start()
+
+    def _stop_pattern_sequence():
+        if pattern_thread is None or not pattern_thread.is_alive():
+            print("No pattern sequence is running")
+            return
+        with pattern_command_lock:
+            pattern_stop.set()
+        pattern_thread.join()
+        print("Pattern stopped; current pressures and solenoid states maintained")
 
     while True:
         try:
@@ -444,15 +531,26 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
             val = input_values.split()
             if not val:
                 continue
+            log_user_command(input_values.strip())
             command = val[0].lower()
+
+            if command == 'stop':
+                if len(val) != 1:
+                    print("usage: stop")
+                    continue
+                _stop_pattern_sequence()
+                continue
 
             if command in pattern_dict:
                 if len(val) > 2:
                     print("usage: <pattern_name> [iterations]")
                     continue
                 n_rep = int(val[1]) if len(val) == 2 else 1
-                _run_pattern_sequence(command, n_rep)
-                print("Pattern sequence done\n")
+                _start_pattern_sequence(command, n_rep)
+                continue
+
+            if pattern_thread is not None and pattern_thread.is_alive():
+                print("A pattern is running. Type 'stop' before sending another command.")
                 continue
 
             if command in pressure_map:
@@ -545,11 +643,6 @@ def input_thread(q_output, pattern_dict=None, pressure_map=None, default_dwell_t
                         print('motor must be 1-5, mode 0=off/1=rotate/2=cont')
                 else:
                     print('usage: m <motor 1-5> <0=off|1=rotate|2=cont>')
-            elif type == 'estop':
-                makeCmd('ESTOP', 0)
-                regulator_vals[:] = 0
-                solenoid_vals[:] = 0
-                print('ESTOP sent')
             elif type == 'prnwait':
                 makeCmd('PRNWAIT', int(numericValues[0]))
             elif type == 'p':
@@ -624,7 +717,24 @@ def main_test():
     rcvstate()   # run directly for debugging outside thread
     
 def main(control_loop, q_output, result_folder, use_force=False, pattern_dict=None,
-         pressure_map=None, default_dwell_time=2):
+         pressure_map=None, default_dwell_time=2, track_input=True):
+    global input_log_file, command_log_file, input_logging_start_time
+    if result_folder:
+        with open(os.path.join(result_folder, 'pressure_map.json'), 'w') as config_file:
+            json.dump(pressure_map or {}, config_file, indent=2, sort_keys=True)
+            config_file.write('\n')
+        with open(os.path.join(result_folder, 'pattern_dict.json'), 'w') as config_file:
+            json.dump(pattern_dict or {}, config_file, indent=2, sort_keys=True)
+            config_file.write('\n')
+    if track_input and result_folder:
+        input_logging_start_time = time.time()
+        input_log_file = open(os.path.join(result_folder, 'input_pressure_sequence.csv'), 'w', newline='')
+        columns = ['timestamp_unix_s', 'elapsed_s']
+        columns.extend('regulator_{}_psi'.format(i + 1) for i in range(N_REGULATOR))
+        columns.extend('solenoid_{}_state'.format(i + 1) for i in range(N_SOLENOID))
+        csv.writer(input_log_file).writerow(columns)
+        command_log_file = open(os.path.join(result_folder, 'input_commands.csv'), 'w', newline='')
+        csv.writer(command_log_file).writerow(['timestamp_unix_s', 'elapsed_s', 'command'])
     print("Data Logging for STM32, with USB connection\n")
     stateThread = threading.Thread(group=None, target=rcvstate, name="stateThread")
     stateThread.daemon = False  # want clean file close
@@ -653,7 +763,7 @@ def main(control_loop, q_output, result_folder, use_force=False, pattern_dict=No
     controlStop.set()  # make sure the control thread waits until handshake completes
     max_attempts = 5
     for attempt in range(max_attempts):
-        sendQ.put(b'foo\n')
+        sendQ.put(b'foo 0\n')  # needs a value, else firmware drops it before parse_cmd
         if _wait_cleared(controlStop, 2.0):
             print('Received response on attempt', attempt+1)
             break
@@ -664,7 +774,6 @@ def main(control_loop, q_output, result_folder, use_force=False, pattern_dict=No
     #
 
 # =============================================================================
-    controlStop.set()  # only start control loop if get STM32READY message
     if control_loop is not None:
         controlThread =threading.Thread(group=None, target=control_loop, args=(q_output,result_folder), name="controlThread")
         controlThread.daemon = False  # want clean file close
@@ -730,6 +839,12 @@ def main(control_loop, q_output, result_folder, use_force=False, pattern_dict=No
     sendThread.join()
     if controlThread is not None:
         controlThread.join()
+    if input_log_file is not None:
+        input_log_file.close()
+        input_log_file = None
+    if command_log_file is not None:
+        command_log_file.close()
+        command_log_file = None
 #    exit()      
 #    sys.exit()
     
@@ -754,6 +869,13 @@ def try_main(*args, **kwargs):
         print("IO Error.")
         ser.close()
     finally:
+        global input_log_file, command_log_file
+        if input_log_file is not None:
+            input_log_file.close()
+            input_log_file = None
+        if command_log_file is not None:
+            command_log_file.close()
+            command_log_file = None
         ser.close()
         print("normal exit")
         # should also close file

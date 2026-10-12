@@ -45,7 +45,8 @@ struct cmd_struct_def {
     float time_stamp;
     char cmd[INPUT_CMD_LENGTH];
     int value;
-};  
+    uint8_t valid;  // 1 = command had a real numeric value; 0 = malformed, must not be executed
+};
 
 struct state_data_t {
     float time_stamp;

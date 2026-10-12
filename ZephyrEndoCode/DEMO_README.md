@@ -102,7 +102,6 @@ Boot logs may include **`# I2C scan:`** and **`#   Found device at 0x48`** when 
 | `m <motor> <mode>` | `m 5 1` | Stepper M1–M5 — mode **0**=off, **1**=one rotation, **2**=continuous |
 | `p` | `p` | Print latest pressures (`p_0`–`p_7`) from `stateQ` |
 | `prnwait <ms>` | `prnwait 100` | Telemetry period (**PRNWAIT** on MCU; default often **5000** ms until changed) |
-| `estop` | `estop` | ESTOP — PWM/solenoids/DAC outputs cleared per firmware |
 | `Ctrl+C` | — | Exit (closes serial in handler) |
 
 ### 4. What you should see
@@ -120,7 +119,6 @@ r 1 2.5
 r 1 0
 s 1 1
 s 1 0
-estop
 ```
 
 ---

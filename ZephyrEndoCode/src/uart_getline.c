@@ -57,6 +57,12 @@ char line1_read, line2_read; // line1 buffer has been read, and is ready to be o
 volatile uint8_t rxBuffer[UART_BUFFER_SIZE];
 volatile uint8_t rxIndex = 0;
 
+/* Incremented by the Rx ISR whenever the hardware reports an overrun (ORE),
+ * i.e. at least one received byte was destroyed. uart_input_thread samples
+ * this around each line so a damaged line can be discarded instead of parsed.
+ */
+volatile uint32_t uart_rx_overrun_count = 0;
+
 
 /* polling based console_getchar()*/
 /* 
@@ -88,8 +94,8 @@ ISR_DIRECT_DECLARE(USART2_IRQHandler)
 { char rxData; 
     irq_disable(USART2_IRQn);  // don't allow another usart interrupt until this one is handled/cleared
 // check for over run, interrupt not responding in time
-    if (LL_USART_IsActiveFlag_ORE(USART2)) 
-    { printk("# serial Rx over run\n");
+    if (LL_USART_IsActiveFlag_ORE(USART2))
+    { uart_rx_overrun_count++;  // at least one byte was lost: poisons current line
       LL_USART_ClearFlag_ORE(USART2);
     }
     if (LL_USART_IsActiveFlag_RXNE(USART2))  // can be non-empty, and over run at same time

@@ -50,9 +50,19 @@ translates these to wire commands — you do **not** type the uppercase wire nam
 | `neo` | `neo <mode>` | NeoPixel mode: 0=off, 1=DAC status (default), 2=rainbow. |
 | `m` | `m <motor> <mode>` | Stepper M1–M5; mode 0=off, 1=one rotation, 2=continuous. |
 | `p` | `p` / `p <chip>` / `p <chip> <sensor>` | **Readback only** — prints pressures from `stateQ`; sends nothing to the MCU. Chip/sensor 1-indexed. |
-| `estop` | `estop` | Sends `ESTOP`; also zeros the host's `regulator_vals`/`solenoid_vals`. |
+| `stop` | `stop` | Interrupts the active named pattern while maintaining its current pressures and solenoid states. |
 | `prnwait` | `prnwait <ms>` | Telemetry print interval. |
 | `start` | `start` | **Host-only** — sets the `charStart` experiment gate; sends nothing. |
+
+Each run folder stores the command configuration as JSON. When input tracking is enabled,
+it also stores the two CSV logs:
+
+| File | Contents |
+|------|----------|
+| `input_pressure_sequence.csv` | Unix timestamp, elapsed run time, and regulator/solenoid states sent by the host. |
+| `input_commands.csv` | Timestamp, elapsed run time, and each non-empty command exactly as typed. |
+| `pressure_map.json` | The pressure-map configuration used for the run. |
+| `pattern_dict.json` | The named-pattern configuration used for the run. |
 
 ## Commands — Raw Wire / MCU Protocol
 
@@ -314,15 +324,6 @@ Import experiments as seen in Python V1--no experiments currently made for V2.
 
 ```text
 Enter values for regulators, solenoids, or motors: start
-```
-
-### Emergency stop
-
-**Command:** `estop`
-
-```text
-Enter values for regulators, solenoids, or motors: estop
-ESTOP sent
 ```
 
 ### Shut down the host

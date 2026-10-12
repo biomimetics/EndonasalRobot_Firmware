@@ -68,7 +68,7 @@ pattern_dict = {
     'f_pitchup': [
       'f_f1, 15, f_f2, 15, f_down, 10, 1',
       'm_ext, 10,2',
-      'm_up, 10,0.5',
+      'm_up, 10,1',
       'f_f1, 0, f_f2, 0, f_down, 0, m_up, 2, m_ext, 0, 1',
 
 
@@ -128,6 +128,13 @@ pattern_dict = {
         'f_f2, 15',
         'm_ext, 15, m_up, 10, 1',
         'f_f1, 0, f_ext, 0, f_up, 0, f_f2, 0, m_up, 0, m_ext, 8',
+    ],
+    'pull_forward': [
+        'l_f2, 15, r_f2, 15, 1',
+        'l_down, 12, r_up, down, l_ext, 12, r_ext, 12, 1',
+        'l_f2, 15, r_f2, 15, 1',
+        # 'm_ext, 10, 1',
+        # 'm_up, 13, 1',
     ],
     'turn_left': ['L_backward', 'R_forward'],
     'turn_right': ['L_forward', 'R_backward'],
@@ -241,6 +248,10 @@ if __name__ == '__main__':
     parser.add_argument("--run_name", default='test')
     parser.add_argument('--comment', default="")
     parser.add_argument("--debug", action='store_true')
+    parser.add_argument('--track_input', dest='track_input', action='store_true', default=True,
+                        help='save commanded regulator and solenoid states (default)')
+    parser.add_argument('--no-track_input', dest='track_input', action='store_false',
+                        help='disable commanded input logging')
 
     args = parser.parse_args()
     args.run_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -256,5 +267,6 @@ if __name__ == '__main__':
         result_folder,
         pattern_dict=pattern_dict,
         pressure_map=pressure_map,
-        default_dwell_time=default_dwell_time
+        default_dwell_time=default_dwell_time,
+        track_input=args.track_input
     )

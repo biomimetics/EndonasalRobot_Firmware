@@ -42,7 +42,8 @@ extern int errno;
  * Definitions
  ******************************************************************************/
 
-extern struct k_msgq cmdq;  // command queue to hold received USB commands 
+extern struct k_msgq cmdq;  // command queue to hold received USB commands
+extern volatile uint32_t uart_rx_overrun_count;  // bumped by Rx ISR when a byte is lost
 
 /* size of stack area used by each thread */
 #define STACKSIZE 2048
@@ -88,10 +89,14 @@ void start_uart_input(void)
 int parse_input(char *input, struct cmd_struct_def *cmd_struct)
 { 
   int i = 0; int j =0;
-  char value_string[INPUT_CMD_LENGTH] = "0"; // in case no valid input set value to 0
+  char value_string[INPUT_CMD_LENGTH];
   int value;
+  int digits_seen = 0;
   char *end_pointer; // end of scan for string to long conversion
   char c;
+
+  cmd_struct->valid = 0;   // not trustworthy until a real number is parsed
+  cmd_struct->value = 0;
 
   // copy first string to command in structure, up to space delimiter, or end of string
   c = input[i]; // read next character
@@ -102,37 +107,50 @@ int parse_input(char *input, struct cmd_struct_def *cmd_struct)
   }
   cmd_struct->cmd[i] = '\0'; // force string to be properly terminated at last input or truncate
   if( i==0)
-  {  return(0); }
-  // copy second string after space delimiter to temporary string, terminate if end of string
-  // value also limited to INPUT_CMD_LENGTH. Should check if text is space or number
-  i++;
-  c = input[i]; // read next character
-  while( (j < INPUT_CMD_LENGTH-1) && (c != '\0'))                             
-  { if ( ((c >= '0') && (c <= '9')) || (c == '-')   ) 
+  {  return(0); }   // no command text left: end of line
+
+  // skip the delimiter(s) between the command word and its value
+  while (input[i] == ' ')
+  {  i++; }
+
+  /* Collect the value. A space (or any non-digit) ENDS the value -- it is never
+   * skipped over. Skipping spaces here used to splice two numbers together when
+   * a byte was lost: "DAC3 0     4 9037" parsed as DAC3 = 049037 = full scale.
+   */
+  while( (j < INPUT_CMD_LENGTH-1) && (input[i] != '\0') )
+  { c = input[i];
+    if ( (c >= '0') && (c <= '9') )
     { value_string[j] = c;
-    i++; j++;
-    c = input[i];
+      i++; j++;
+      digits_seen = 1;
+    }
+    else if ( (c == '-') && (j == 0) )  // sign only allowed as first character
+    { value_string[j] = c;
+      i++; j++;
     }
     else
-    { if (c == ' ')  // skip spaces
-      { i++; 
-      c = input[i];
-      }
-      else
-      { j++;  // make sure '\0' is written after '0' to get valid number
-        break; // exit while loop if not ASCII space or number
-      }
-    }
+    { break; }  // space, letter, CR/LF or anything else terminates the value
   }
-  value_string[j] = '\0'; // terminate string 
-  // CAUTION strtol does not check for valid digits
+  value_string[j] = '\0'; // terminate string
+
+  if (!digits_seen)
+  { /* The command word arrived with no number behind it: the line was truncated
+     * or bytes were lost. Substituting 0 here used to drive the addressed
+     * actuator to zero pressure. Report the advance so scanning can continue
+     * from the offending character, but leave valid = 0 so the caller drops it.
+     */
+    return(i);
+  }
+
   value = (int) strtol(value_string, &end_pointer, 10);  // using base 10
-//  printk("# strtol errno=%d\n", errno);
-//  printk("# start pointer =0x%lx  end pointer = 0x%lx\n", 
-//              (long)value_string, (long)end_pointer);
   cmd_struct -> value = value;
+  cmd_struct -> valid = 1;
+
+  // consume trailing padding spaces so the next command starts on its first char
+  while (input[i] == ' ')
+  {  i++; }
   // printk("# cmd = %s value = %d\n", cmd_struct->cmd, cmd_struct->value);
-  return(i);  
+  return(i);
 }
 
 void uart_input_thread(void)
@@ -148,6 +166,7 @@ void uart_input_thread(void)
     struct cmd_struct_def cmd_struct, dummy_struct;    // local copy structure char[8] cmd, int value
     long time_int;
     uint32_t cmdq_used;
+    uint32_t overrun_at_line_start;
     
     // console_getline_init();
    // console_init();
@@ -165,6 +184,7 @@ void uart_input_thread(void)
       	printq_add(log);
 #endif
         // need getline without echo for interface with python
+        overrun_at_line_start = uart_rx_overrun_count;
         c = '\n';
         while( (c == '\n') || (c == '\r'))  
         {  c = (char) console_getchar(); // discard extra line feed characters
@@ -179,7 +199,22 @@ void uart_input_thread(void)
           j++;
         }
         line[j-1] ='\0';   // omit end of line char. make sure string is terminated, last character is line[79]
-        
+
+        /* If the hardware lost any byte while this line was arriving, the line
+         * cannot be trusted: a missing byte can merge two commands, truncate a
+         * value, or splice two values into one. Drop the whole line -- Python
+         * re-sends the full regulator/solenoid state periodically, so a skipped
+         * line is harmless, while executing a corrupted one moves an actuator.
+         */
+        if (uart_rx_overrun_count != overrun_at_line_start)
+        {   snprintf(log, sizeof(log),
+                "# Rx overrun (total %u): discarded damaged line \"%s\"\n",
+                (unsigned int) uart_rx_overrun_count, line);
+            printq_add(log);
+            continue;
+        }
+
+
 //        printk("# UART read line %s\n", line);
 
 //        line = console_getline();  // returns pointer to char buffer with line (< 128 length)
@@ -200,7 +235,17 @@ void uart_input_thread(void)
           // input commmand should be added to command queue
           count = count + new_count;
 
-          // time_int = get_time_diff();     
+          /* parse_input could not find a number for this command word: drop it
+           * rather than execute it with a substituted value.
+           */
+          if (!cmd_struct.valid)
+          {   snprintf(log, sizeof(log),
+                  "# dropped malformed cmd \"%s\" (no numeric value)\n", cmd_struct.cmd);
+              printq_add(log);
+              continue;
+          }
+
+          // time_int = get_time_diff();
 
           /* **************
           time_int = get_time_diff();

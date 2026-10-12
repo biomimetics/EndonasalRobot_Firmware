@@ -56,6 +56,14 @@ static inline __attribute__((always_inline)) void send_bit(uint8_t bit)
 
 static void send_byte(uint8_t byte)
 {
+    /* Interrupts are locked for ONE byte (~10 us) rather than for the whole
+     * frame. A frame-wide lock is 16 LEDs * 24 bits * 1.25 us = ~500 us, which
+     * is ~11 byte times at 230400 baud: USART2 has a single-byte Rx register
+     * and no FIFO, so the Rx ISR being blocked that long destroys incoming
+     * bytes (ORE) and corrupts DAC/SOL commands mid-stream. 10 us is well
+     * under the 43 us byte time, so no byte can be lost.
+     */
+    unsigned int key = irq_lock();
     send_bit(byte & 0x80);
     send_bit(byte & 0x40);
     send_bit(byte & 0x20);
@@ -64,22 +72,23 @@ static void send_byte(uint8_t byte)
     send_bit(byte & 0x04);
     send_bit(byte & 0x02);
     send_bit(byte & 0x01);
+    irq_unlock(key);
 }
 
 void ws2812_show(uint8_t (*colors)[3])
 {
-    // Disable interrupts for precise timing
-    unsigned int key = irq_lock();
-    
+    /* No frame-wide irq_lock here -- see send_byte(). Each byte is sent with
+     * interrupts locked; between bytes an ISR may run. ISRs here are a few us,
+     * well under the WS2812 ~50 us reset threshold, so the frame still latches
+     * correctly. Worst case is a cosmetic LED glitch, never a lost UART byte.
+     */
     for (int i = 0; i < LED_COUNT; i++) {
         // WS2812 expects GRB order
         send_byte(colors[i][1]);  // Green
         send_byte(colors[i][0]);  // Red
         send_byte(colors[i][2]);  // Blue
     }
-    
-    irq_unlock(key);
-    
+
     // Reset pulse (>50us low)
     k_busy_wait(80);
 }

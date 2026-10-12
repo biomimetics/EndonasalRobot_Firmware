@@ -224,6 +224,10 @@ if __name__ == '__main__':
     parser.add_argument("--run_name", default='test')
     parser.add_argument('--comment', default="")
     parser.add_argument("--debug", action='store_true')
+    parser.add_argument('--track_input', dest='track_input', action='store_true', default=True,
+                        help='save commanded regulator and solenoid states (default)')
+    parser.add_argument('--no-track_input', dest='track_input', action='store_false',
+                        help='disable commanded input logging')
 
     args = parser.parse_args()
     args.run_name = os.path.splitext(os.path.basename(__file__))[0]
@@ -239,5 +243,6 @@ if __name__ == '__main__':
         result_folder,
         pattern_dict=pattern_dict,
         pressure_map=pressure_map,
-        default_dwell_time=default_dwell_time
+        default_dwell_time=default_dwell_time,
+        track_input=args.track_input
     )
