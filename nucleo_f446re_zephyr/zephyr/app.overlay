@@ -11,3 +11,8 @@
     pinctrl-0 = <&i2c2_scl_pb10 &i2c2_sda_pb3>;
     pinctrl-names = "default";
 };
+
+/* Console / Python link on the ST-Link virtual COM port, same rate as ZephyrEndoCode */
+&usart2 {
+    current-speed = <230400>;
+};

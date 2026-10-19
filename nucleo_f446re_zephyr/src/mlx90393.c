@@ -67,7 +67,7 @@ static int mlx90393_write_register(const mlx90393_t *dev, uint8_t reg, uint16_t 
 int mlx90393_init(mlx90393_t *dev)
 {
     if (!device_is_ready(dev->i2c_dev)) {
-        printk("[%s] I2C bus driver not ready\n", dev->label);
+        printk("# [%s] I2C bus driver not ready\n", dev->label);
         return -ENODEV;
     }
 
@@ -108,11 +108,11 @@ int mlx90393_init(mlx90393_t *dev)
      * three axes, plus margin */
     dev->conv_ms = (uint16_t)(3.0f * 0.064f * (1 << dev->osr) * (2 + (1 << dev->dig_filt))) + 10;
 
-    printk("[%s] GAIN_SEL=%u HALLCONF=0x%X RES(x,y,z)=%u,%u,%u OSR=%u DIG_FILT=%u (%u ms)\n",
+    printk("# [%s] GAIN_SEL=%u HALLCONF=0x%X RES(x,y,z)=%u,%u,%u OSR=%u DIG_FILT=%u (%u ms)\n",
            dev->label, dev->gain_sel, dev->hallconf, dev->res_x, dev->res_y, dev->res_z,
            dev->osr, dev->dig_filt, dev->conv_ms);
     if (dev->hallconf != 0x0C) {
-        printk("[%s] Warning: HALLCONF is not 0xC, gauss values are approximate\n", dev->label);
+        printk("# [%s] Warning: HALLCONF is not 0xC, gauss values are approximate\n", dev->label);
     }
 
     return 0;
@@ -152,7 +152,7 @@ int mlx90393_read_axes(const mlx90393_t *dev, mlx90393_data_t *data)
     uint8_t status = 0;
     int ret = i2c_write_read(dev->i2c_dev, dev->i2c_addr, &start_cmd, 1, &status, 1);
     if (ret != 0) {
-        printk("[%s] SM failed: %d\n", dev->label, ret);
+        printk("# [%s] SM failed: %d\n", dev->label, ret);
         return ret;
     }
 
@@ -163,7 +163,7 @@ int mlx90393_read_axes(const mlx90393_t *dev, mlx90393_data_t *data)
     uint8_t read_cmd = CMD_READ_MEASUREMENT | AXIS_XYZ_FLAGS;
     ret = i2c_write_read(dev->i2c_dev, dev->i2c_addr, &read_cmd, 1, buffer, sizeof(buffer));
     if (ret != 0) {
-        printk("[%s] RM failed: %d (SM status 0x%02x)\n", dev->label, ret, status);
+        printk("# [%s] RM failed: %d (SM status 0x%02x)\n", dev->label, ret, status);
         return ret;
     }
 

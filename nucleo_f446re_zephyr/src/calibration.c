@@ -17,10 +17,10 @@ static const char *const instructions[NUM_POSITIONS] = {
         "Lay the board FLAT on the table, sensor chips facing UP.",
     [POS_Z_DOWN] =
         "FLIP the board over about its X axis (rotate 180 deg around the X arrow),\n"
-        "    so it is upside down with the sensor chips facing DOWN.",
+        "#     so it is upside down with the sensor chips facing DOWN.",
     [POS_X_UP] =
         "Turn it right side up, then stand it on its edge so the X arrow points\n"
-        "    straight UP (board vertical).",
+        "#     straight UP (board vertical).",
     [POS_X_DOWN] =
         "Turn it over so the X arrow points straight DOWN (board still vertical).",
     [POS_Y_UP] =
@@ -33,7 +33,7 @@ static const char *const instructions[NUM_POSITIONS] = {
 static void countdown(const char *what, int32_t ms)
 {
     for (int32_t s = ms / 1000; s > 0; s--) {
-        printk("    %s %d...\n", what, s);
+        printk("#     %s %d...\n", what, s);
         k_msleep(1000);
     }
 }
@@ -60,7 +60,7 @@ static bool collect_position(mlx90393_t *const sensors[], size_t num_sensors,
             }
         }
         if (k_uptime_get() >= next_dot) {
-            printk("    holding... %lld s left\n",
+            printk("#     holding... %lld s left\n",
                    (CALIB_HOLD_MS - (k_uptime_get() - start) + 999) / 1000);
             next_dot += 1000;
         }
@@ -68,14 +68,14 @@ static bool collect_position(mlx90393_t *const sensors[], size_t num_sensors,
 
     for (size_t i = 0; i < num_sensors; i++) {
         if (count[i] == 0) {
-            printk("    [%s] no valid readings in this position\n", sensors[i]->label);
+            printk("#     [%s] no valid readings in this position\n", sensors[i]->label);
             all_ok = false;
             continue;
         }
         mean[i].x = sum[i].x / count[i];
         mean[i].y = sum[i].y / count[i];
         mean[i].z = sum[i].z / count[i];
-        printk("    [%s] avg of %u: X %7.4f  Y %7.4f  Z %7.4f G\n", sensors[i]->label,
+        printk("#     [%s] avg of %u: X %7.4f  Y %7.4f  Z %7.4f G\n", sensors[i]->label,
                count[i], mean[i].x, mean[i].y, mean[i].z);
     }
     return all_ok;
@@ -94,30 +94,30 @@ void calibration_run(mlx90393_t *const sensors[], mlx90393_gauss_t offsets[],
     bool valid = true;
 
     if (num_sensors > CALIB_MAX_SENSORS) {
-        printk("Calibration supports at most %d sensors\n", CALIB_MAX_SENSORS);
+        printk("# Calibration supports at most %d sensors\n", CALIB_MAX_SENSORS);
         return;
     }
 
-    printk("\n================ CALIBRATION ================\n");
-    printk("Move magnets at least 30 cm away. Rotate the WHOLE board (Nucleo,\n");
-    printk("breadboard and sensors together). X and Y are the arrows printed on\n");
-    printk("the sensor boards. Each position: %d s to move, then hold STILL %d s.\n",
+    printk("#\n# ================ CALIBRATION ================\n");
+    printk("# Move magnets at least 30 cm away. Rotate the WHOLE board (Nucleo,\n");
+    printk("# breadboard and sensors together). X and Y are the arrows printed on\n");
+    printk("# the sensor boards. Each position: %d s to move, then hold STILL %d s.\n",
            CALIB_MOVE_MS / 1000, CALIB_HOLD_MS / 1000);
 
     /* Steps 1-6: guide the user through each position and average the readings */
     for (int p = 0; p < NUM_POSITIONS; p++) {
-        printk("\n--- Step %d of %d ---\n", p + 1, NUM_POSITIONS);
-        printk("    %s\n", instructions[p]);
+        printk("#\n# --- Step %d of %d ---\n", p + 1, NUM_POSITIONS);
+        printk("#     %s\n", instructions[p]);
         countdown("move into position:", CALIB_MOVE_MS);
-        printk("    HOLD STILL now\n");
+        printk("#     HOLD STILL now\n");
         if (!collect_position(sensors, num_sensors, mean[p])) {
             valid = false;
         }
     }
 
-    printk("\n============ CALIBRATION RESULT ============\n");
+    printk("#\n# ============ CALIBRATION RESULT ============\n");
     if (!valid) {
-        printk("Some readings failed - keeping previous offsets. Try again.\n\n");
+        printk("# Some readings failed - keeping previous offsets. Try again.\n");
         return;
     }
 
@@ -132,24 +132,24 @@ void calibration_run(mlx90393_t *const sensors[], mlx90393_gauss_t offsets[],
         float span_y = abs_f(mean[POS_Y_DOWN][i].y - mean[POS_Y_UP][i].y);
         float span_z = abs_f(mean[POS_Z_DOWN][i].z - mean[POS_Z_UP][i].z);
 
-        printk("[%s] Offset X: %7.4f G | Y: %7.4f G | Z: %7.4f G\n",
+        printk("# [%s] Offset X: %7.4f G | Y: %7.4f G | Z: %7.4f G\n",
                sensors[i]->label, offsets[i].x, offsets[i].y, offsets[i].z);
-        printk("[%s] Span   X: %7.4f G | Y: %7.4f G | Z: %7.4f G\n",
+        printk("# [%s] Span   X: %7.4f G | Y: %7.4f G | Z: %7.4f G\n",
                sensors[i]->label, span_x, span_y, span_z);
         if (span_x < CALIB_MIN_SPAN_G) {
-            printk("[%s] Warning: X span small - check steps 3/4 (X arrow up, then down)\n",
+            printk("# [%s] Warning: X span small - check steps 3/4 (X arrow up, then down)\n",
                    sensors[i]->label);
         }
         if (span_y < CALIB_MIN_SPAN_G) {
-            printk("[%s] Warning: Y span small - check steps 5/6 (Y arrow up, then down)\n",
+            printk("# [%s] Warning: Y span small - check steps 5/6 (Y arrow up, then down)\n",
                    sensors[i]->label);
         }
         if (span_z < CALIB_MIN_SPAN_G) {
-            printk("[%s] Warning: Z span small - check steps 1/2 (flat, then flipped)\n",
+            printk("# [%s] Warning: Z span small - check steps 1/2 (flat, then flipped)\n",
                    sensors[i]->label);
         }
     }
-    printk("Offsets applied. Lay the board flat again.\n\n");
+    printk("# Offsets applied. Lay the board flat again.\n");
 }
 
 /* Remove the offset from each reading */
